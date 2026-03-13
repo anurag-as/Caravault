@@ -1,0 +1,43 @@
+# Build directories
+build/
+cmake-build-*/
+
+# Compiled binaries
+caravault
+unit_tests
+property_tests
+integration_tests
+*.exe
+
+# Object files
+*.o
+*.obj
+*.a
+*.lib
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# IDE files
+.kiro/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test artifacts
+Testing/
+*.log
+
+# Caravault runtime files
+.caravault/
+
+# OS files
+.DS_Store
+Thumbs.db
