@@ -62,6 +62,7 @@ add_executable(caravault
     src/main.cpp
     src/version_vector.cpp
     src/manifest_store.cpp
+    src/merkle_engine.cpp
 )
 
 target_link_libraries(caravault
@@ -81,6 +82,7 @@ add_executable(unit_tests
     tests/unit/manifest_store_test.cpp
     src/version_vector.cpp
     src/manifest_store.cpp
+    src/merkle_engine.cpp
 )
 
 target_link_libraries(unit_tests
@@ -95,8 +97,10 @@ target_link_libraries(unit_tests
 add_executable(property_tests
     tests/property/version_vector_property_test.cpp
     tests/property/manifest_store_property_test.cpp
+    tests/property/merkle_engine_property_test.cpp
     src/version_vector.cpp
     src/manifest_store.cpp
+    src/merkle_engine.cpp
 )
 
 target_include_directories(property_tests
@@ -119,6 +123,7 @@ add_executable(integration_tests
     tests/integration/placeholder_test.cpp
     src/version_vector.cpp
     src/manifest_store.cpp
+    src/merkle_engine.cpp
 )
 
 target_link_libraries(integration_tests
