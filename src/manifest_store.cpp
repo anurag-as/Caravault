@@ -14,10 +14,6 @@ int64_t current_unix_time() {
 }
 }  // namespace
 
-// ---------------------------------------------------------------------------
-// FileMetadata equality
-// ---------------------------------------------------------------------------
-
 bool FileMetadata::operator==(const FileMetadata& other) const {
     return path == other.path && hash == other.hash && size == other.size && mtime == other.mtime &&
            version_vector == other.version_vector && tombstone == other.tombstone &&

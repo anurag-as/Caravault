@@ -17,10 +17,6 @@
 namespace fs = std::filesystem;
 using namespace caravault;
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 namespace {
 
 // Generate a unique temp DB path for each test invocation.

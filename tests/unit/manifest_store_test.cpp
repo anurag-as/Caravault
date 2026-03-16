@@ -7,9 +7,7 @@
 namespace fs = std::filesystem;
 using namespace caravault;
 
-// ---------------------------------------------------------------------------
 // Test fixture: creates a temp DB file and removes it after each test
-// ---------------------------------------------------------------------------
 
 class ManifestStoreTest : public ::testing::Test {
 protected:
@@ -28,9 +26,7 @@ protected:
     }
 };
 
-// ---------------------------------------------------------------------------
 // Drive operations
-// ---------------------------------------------------------------------------
 
 TEST_F(ManifestStoreTest, RegisterDriveAndGetAllDrives) {
     store_.register_drive("drive-A");
@@ -65,9 +61,7 @@ TEST_F(ManifestStoreTest, GetAllDrivesEmptyInitially) {
     EXPECT_TRUE(store_.get_all_drives().empty());
 }
 
-// ---------------------------------------------------------------------------
 // File metadata operations
-// ---------------------------------------------------------------------------
 
 static FileMetadata make_file(const std::string& path) {
     FileMetadata m;
@@ -157,9 +151,7 @@ TEST_F(ManifestStoreTest, FileMetadataRoundTrip) {
     EXPECT_EQ(*result, original);
 }
 
-// ---------------------------------------------------------------------------
 // Merkle tree operations
-// ---------------------------------------------------------------------------
 
 TEST_F(ManifestStoreTest, UpsertAndGetMerkleHash) {
     store_.upsert_merkle_node("docs/", "hashABC", 1);
@@ -187,9 +179,7 @@ TEST_F(ManifestStoreTest, MerkleNodeLevelDistinguishesEntries) {
     EXPECT_EQ(*store_.get_merkle_hash("path/", 1), "hashLevel1");
 }
 
-// ---------------------------------------------------------------------------
 // Transaction log operations
-// ---------------------------------------------------------------------------
 
 TEST_F(ManifestStoreTest, BeginAndCompleteOperation) {
     uint64_t id = store_.begin_operation("COPY", "file.txt");
@@ -220,9 +210,7 @@ TEST_F(ManifestStoreTest, GetIncompleteOperationsEmptyInitially) {
     EXPECT_TRUE(store_.get_incomplete_operations().empty());
 }
 
-// ---------------------------------------------------------------------------
 // Transaction atomicity
-// ---------------------------------------------------------------------------
 
 TEST_F(ManifestStoreTest, CommitPersistsData) {
     store_.begin_transaction();

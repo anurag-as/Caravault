@@ -6,9 +6,7 @@
 
 using namespace caravault;
 
-// ---------------------------------------------------------------------------
 // Construction
-// ---------------------------------------------------------------------------
 
 TEST(BloomFilterTest, ConstructsWithoutError) {
     EXPECT_NO_THROW(BloomFilter(1000, 0.01));
@@ -27,9 +25,7 @@ TEST(BloomFilterTest, SizeBytesIsPositive) {
     EXPECT_GT(bf.size_bytes(), size_t{0});
 }
 
-// ---------------------------------------------------------------------------
 // No false negatives: inserted items must always be found
-// ---------------------------------------------------------------------------
 
 TEST(BloomFilterTest, InsertedItemsAlwaysFound) {
     BloomFilter bf(500, 0.01);
@@ -49,9 +45,7 @@ TEST(BloomFilterTest, EmptyFilterContainsNothing) {
     EXPECT_FALSE(bf.might_contain("some/path/file.txt"));
 }
 
-// ---------------------------------------------------------------------------
 // False positive rate stays within bounds
-// ---------------------------------------------------------------------------
 
 TEST(BloomFilterTest, FalsePositiveRateWithinBounds) {
     const size_t n_insert = 1000;
@@ -78,9 +72,7 @@ TEST(BloomFilterTest, FalsePositiveRateWithinBounds) {
         << "False positive rate " << actual_fpr << " exceeds allowed " << allowed_fpr;
 }
 
-// ---------------------------------------------------------------------------
 // clear() resets filter state
-// ---------------------------------------------------------------------------
 
 TEST(BloomFilterTest, ClearResetsState) {
     BloomFilter bf(100, 0.01);
