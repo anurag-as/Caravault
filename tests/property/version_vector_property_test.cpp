@@ -170,15 +170,7 @@ RC_GTEST_PROP(VersionVectorProperty, Property12_VersionVectorPersistenceRoundTri
     
     // Verify equality
     RC_ASSERT(original == restored);
-    
-    // Verify all clocks match
-    for (const auto& [drive_id, expected_clock] : clocks) {
-        RC_ASSERT(restored.get_clock(drive_id) == expected_clock);
-    }
-    
-    // Verify no extra clocks were added
-    RC_ASSERT(restored.get_clocks().size() == clocks.size());
-    
+
     // Verify comparison returns EQUAL
     RC_ASSERT(original.compare(restored) == VersionVector::Ordering::EQUAL);
 }

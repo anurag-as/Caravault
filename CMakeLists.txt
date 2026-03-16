@@ -61,6 +61,7 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 add_executable(caravault
     src/main.cpp
     src/version_vector.cpp
+    src/manifest_store.cpp
 )
 
 target_link_libraries(caravault
@@ -76,9 +77,10 @@ enable_testing()
 
 # Unit tests
 add_executable(unit_tests
-    tests/unit/placeholder_test.cpp
     tests/unit/version_vector_test.cpp
+    tests/unit/manifest_store_test.cpp
     src/version_vector.cpp
+    src/manifest_store.cpp
 )
 
 target_link_libraries(unit_tests
@@ -91,9 +93,10 @@ target_link_libraries(unit_tests
 
 # Property-based tests
 add_executable(property_tests
-    tests/property/placeholder_test.cpp
     tests/property/version_vector_property_test.cpp
+    tests/property/manifest_store_property_test.cpp
     src/version_vector.cpp
+    src/manifest_store.cpp
 )
 
 target_include_directories(property_tests
@@ -115,6 +118,7 @@ target_link_libraries(property_tests
 add_executable(integration_tests
     tests/integration/placeholder_test.cpp
     src/version_vector.cpp
+    src/manifest_store.cpp
 )
 
 target_link_libraries(integration_tests

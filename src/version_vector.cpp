@@ -6,7 +6,7 @@
 
 namespace caravault {
 
-VersionVector::VersionVector() : clocks_() {}
+VersionVector::VersionVector() = default;
 
 VersionVector::VersionVector(const std::map<std::string, uint64_t>& clocks)
     : clocks_(clocks) {}
@@ -16,7 +16,6 @@ void VersionVector::increment(const std::string& drive_id) {
 }
 
 void VersionVector::merge(const VersionVector& other) {
-    // Take element-wise maximum of all clocks
     for (const auto& [drive_id, clock] : other.clocks_) {
         auto it = clocks_.find(drive_id);
         if (it == clocks_.end()) {
@@ -28,40 +27,24 @@ void VersionVector::merge(const VersionVector& other) {
 }
 
 VersionVector::Ordering VersionVector::compare(const VersionVector& other) const {
-    // Collect all drive IDs from both vectors
     std::set<std::string> all_drives;
-    for (const auto& [drive_id, _] : clocks_) {
-        all_drives.insert(drive_id);
-    }
-    for (const auto& [drive_id, _] : other.clocks_) {
-        all_drives.insert(drive_id);
-    }
+    for (const auto& [drive_id, _] : clocks_)       all_drives.insert(drive_id);
+    for (const auto& [drive_id, _] : other.clocks_) all_drives.insert(drive_id);
 
-    bool this_greater = false;  // ∃ drive: this[drive] > other[drive]
-    bool other_greater = false; // ∃ drive: other[drive] > this[drive]
+    bool this_greater  = false;
+    bool other_greater = false;
 
     for (const auto& drive_id : all_drives) {
-        uint64_t this_clock = get_clock(drive_id);
+        uint64_t this_clock  = get_clock(drive_id);
         uint64_t other_clock = other.get_clock(drive_id);
-
-        if (this_clock > other_clock) {
-            this_greater = true;
-        } else if (other_clock > this_clock) {
-            other_greater = true;
-        }
+        if (this_clock > other_clock)       this_greater  = true;
+        else if (other_clock > this_clock)  other_greater = true;
     }
 
-    // Determine ordering based on comparison results
-    if (!this_greater && !other_greater) {
-        return Ordering::EQUAL;
-    } else if (this_greater && !other_greater) {
-        return Ordering::DOMINATES;
-    } else if (!this_greater && other_greater) {
-        return Ordering::DOMINATED_BY;
-    } else {
-        // Both this_greater and other_greater are true
-        return Ordering::CONCURRENT;
-    }
+    if (!this_greater && !other_greater) return Ordering::EQUAL;
+    if (this_greater  && !other_greater) return Ordering::DOMINATES;
+    if (!this_greater && other_greater)  return Ordering::DOMINATED_BY;
+    return Ordering::CONCURRENT;
 }
 
 uint64_t VersionVector::get_clock(const std::string& drive_id) const {
@@ -76,141 +59,80 @@ const std::map<std::string, uint64_t>& VersionVector::get_clocks() const {
 std::string VersionVector::to_json() const {
     std::ostringstream oss;
     oss << "{";
-    
     bool first = true;
     for (const auto& [drive_id, clock] : clocks_) {
-        if (!first) {
-            oss << ",";
-        }
+        if (!first) oss << ",";
         first = false;
-        
-        // Escape drive_id for JSON (simple escaping for quotes and backslashes)
-        std::string escaped_id = drive_id;
-        size_t pos = 0;
-        while ((pos = escaped_id.find('\\', pos)) != std::string::npos) {
-            escaped_id.replace(pos, 1, "\\\\");
-            pos += 2;
+        oss << "\"";
+        for (char c : drive_id) {
+            if (c == '\\' || c == '"') oss << '\\';
+            oss << c;
         }
-        pos = 0;
-        while ((pos = escaped_id.find('"', pos)) != std::string::npos) {
-            escaped_id.replace(pos, 1, "\\\"");
-            pos += 2;
-        }
-        
-        oss << "\"" << escaped_id << "\":" << clock;
+        oss << "\":" << clock;
     }
-    
     oss << "}";
     return oss.str();
 }
 
 VersionVector VersionVector::from_json(const std::string& json) {
     std::map<std::string, uint64_t> clocks;
-    
-    // Simple JSON parser for the specific format: {"key1":value1,"key2":value2,...}
-    // This is a minimal parser sufficient for our use case
-    
+
     if (json.empty() || json[0] != '{') {
         throw std::runtime_error("Invalid JSON: must start with '{'");
     }
-    
-    size_t pos = 1; // Skip opening brace
-    
-    while (pos < json.length()) {
-        // Skip whitespace
-        while (pos < json.length() && std::isspace(json[pos])) {
-            pos++;
-        }
-        
-        if (pos >= json.length()) {
-            throw std::runtime_error("Invalid JSON: unexpected end");
-        }
-        
-        // Check for closing brace
-        if (json[pos] == '}') {
-            break;
-        }
-        
-        // Parse key (must be quoted string)
-        if (json[pos] != '"') {
+
+    auto skip_ws = [&](size_t pos) {
+        while (pos < json.size() && std::isspace(static_cast<unsigned char>(json[pos]))) ++pos;
+        return pos;
+    };
+
+    size_t pos = skip_ws(1);
+
+    while (pos < json.size()) {
+        if (json[pos] == '}') break;
+
+        if (json[pos] != '"')
             throw std::runtime_error("Invalid JSON: expected '\"' for key");
-        }
-        pos++; // Skip opening quote
-        
+        ++pos;
+
         std::string key;
-        while (pos < json.length() && json[pos] != '"') {
-            if (json[pos] == '\\' && pos + 1 < json.length()) {
-                // Handle escaped characters
-                pos++;
-                if (json[pos] == '"' || json[pos] == '\\') {
-                    key += json[pos];
-                } else {
+        while (pos < json.size() && json[pos] != '"') {
+            if (json[pos] == '\\') {
+                ++pos;
+                if (pos >= json.size() || (json[pos] != '"' && json[pos] != '\\'))
                     throw std::runtime_error("Invalid JSON: unsupported escape sequence");
-                }
-            } else {
-                key += json[pos];
             }
-            pos++;
+            key += json[pos++];
         }
-        
-        if (pos >= json.length()) {
+        if (pos >= json.size())
             throw std::runtime_error("Invalid JSON: unterminated string");
-        }
-        pos++; // Skip closing quote
-        
-        // Skip whitespace
-        while (pos < json.length() && std::isspace(json[pos])) {
-            pos++;
-        }
-        
-        // Expect colon
-        if (pos >= json.length() || json[pos] != ':') {
+        ++pos; // closing quote
+
+        pos = skip_ws(pos);
+        if (pos >= json.size() || json[pos] != ':')
             throw std::runtime_error("Invalid JSON: expected ':' after key");
-        }
-        pos++; // Skip colon
-        
-        // Skip whitespace
-        while (pos < json.length() && std::isspace(json[pos])) {
-            pos++;
-        }
-        
-        // Parse value (must be number)
-        if (pos >= json.length() || !std::isdigit(json[pos])) {
+        pos = skip_ws(pos + 1);
+
+        if (pos >= json.size() || !std::isdigit(static_cast<unsigned char>(json[pos])))
             throw std::runtime_error("Invalid JSON: expected number for value");
-        }
-        
+
         uint64_t value = 0;
-        while (pos < json.length() && std::isdigit(json[pos])) {
-            value = value * 10 + (json[pos] - '0');
-            pos++;
-        }
-        
+        while (pos < json.size() && std::isdigit(static_cast<unsigned char>(json[pos])))
+            value = value * 10 + (json[pos++] - '0');
+
         clocks[key] = value;
-        
-        // Skip whitespace
-        while (pos < json.length() && std::isspace(json[pos])) {
-            pos++;
-        }
-        
-        // Check for comma or closing brace
-        if (pos < json.length() && json[pos] == ',') {
-            pos++; // Skip comma
-        } else if (pos < json.length() && json[pos] == '}') {
-            break;
-        } else if (pos >= json.length()) {
-            throw std::runtime_error("Invalid JSON: unexpected end");
-        }
+
+        pos = skip_ws(pos);
+        if (pos < json.size() && json[pos] == ',') ++pos;
+        else if (pos < json.size() && json[pos] == '}') break;
+        else if (pos >= json.size()) throw std::runtime_error("Invalid JSON: unexpected end");
     }
-    
+
     return VersionVector(clocks);
 }
 
 bool VersionVector::operator==(const VersionVector& other) const {
     return clocks_ == other.clocks_;
-}
-
-bool VersionVector::operator!=(const VersionVector& other) const {
-    return !(*this == other);
 }
 
 } // namespace caravault
