@@ -74,7 +74,7 @@ FileMetadata make_metadata(const std::string& path,
 
 // For any sequence of drive detection events, all assigned drive identifiers
 // SHALL be unique across all drives.
-RC_GTEST_PROP(ManifestStoreProperty, Property1_DriveIdUniqueness, ()) {
+RC_GTEST_PROP(ManifestStoreProperty, DriveIdUniqueness, ()) {
     // Generate a list of drive IDs (may contain duplicates in input)
     auto raw_ids = *rc::gen::container<std::vector<std::string>>(
         rc::gen::map(rc::gen::string<std::string>(),
@@ -95,7 +95,7 @@ RC_GTEST_PROP(ManifestStoreProperty, Property1_DriveIdUniqueness, ()) {
 // For any drive, after registering the drive, disconnecting it (closing the
 // store), and reconnecting it (reopening the store), the system SHALL
 // recognize the same drive identifier.
-RC_GTEST_PROP(ManifestStoreProperty, Property2_DriveRecognitionRoundTrip, ()) {
+RC_GTEST_PROP(ManifestStoreProperty, DriveRecognitionRoundTrip, ()) {
     auto drive_id = nonempty_string(*rc::gen::string<std::string>());
 
     fs::path db_path = make_temp_db_path();
@@ -123,7 +123,7 @@ RC_GTEST_PROP(ManifestStoreProperty, Property2_DriveRecognitionRoundTrip, ()) {
 
 // For any set of registered drives, querying the drive registry SHALL return
 // all registered drives with their identifiers.
-RC_GTEST_PROP(ManifestStoreProperty, Property3_DriveRegistryCompleteness, ()) {
+RC_GTEST_PROP(ManifestStoreProperty, DriveRegistryCompleteness, ()) {
     // Generate a set of unique non-empty drive IDs
     auto raw_ids = *rc::gen::container<std::vector<std::string>>(
         rc::gen::map(rc::gen::string<std::string>(),
@@ -146,7 +146,7 @@ RC_GTEST_PROP(ManifestStoreProperty, Property3_DriveRegistryCompleteness, ()) {
 
 // For any file metadata, storing it to the SQLite database and reloading it
 // SHALL produce equal metadata.
-RC_GTEST_PROP(ManifestStoreProperty, Property41_FileMetadataPersistenceRoundTrip, ()) {
+RC_GTEST_PROP(ManifestStoreProperty, FileMetadataPersistenceRoundTrip, ()) {
     auto path_str = *rc::gen::map(rc::gen::string<std::string>(),
                                   [](std::string s) { return s.empty() ? std::string("f") : s; });
     auto hash_str = *rc::gen::map(rc::gen::string<std::string>(),
@@ -181,7 +181,7 @@ RC_GTEST_PROP(ManifestStoreProperty, Property41_FileMetadataPersistenceRoundTrip
 
 // For any Merkle tree structure, storing it to the SQLite database and
 // reloading it SHALL produce an equal tree structure.
-RC_GTEST_PROP(ManifestStoreProperty, Property42_MerkleTreePersistenceRoundTrip, ()) {
+RC_GTEST_PROP(ManifestStoreProperty, MerkleTreePersistenceRoundTrip, ()) {
     auto path_str = *rc::gen::map(rc::gen::string<std::string>(),
                                   [](std::string s) { return s.empty() ? std::string("p") : s; });
     auto hash_str = *rc::gen::map(rc::gen::string<std::string>(),
@@ -198,7 +198,7 @@ RC_GTEST_PROP(ManifestStoreProperty, Property42_MerkleTreePersistenceRoundTrip, 
 
 // For any drive registry information, storing it to the SQLite database and
 // reloading it SHALL produce equal registry data.
-RC_GTEST_PROP(ManifestStoreProperty, Property43_DriveRegistryPersistenceRoundTrip, ()) {
+RC_GTEST_PROP(ManifestStoreProperty, DriveRegistryPersistenceRoundTrip, ()) {
     auto raw_ids = *rc::gen::container<std::vector<std::string>>(
         rc::gen::map(rc::gen::string<std::string>(),
                      [](std::string s) { return s.empty() ? std::string("d") : s; }));
@@ -231,7 +231,7 @@ RC_GTEST_PROP(ManifestStoreProperty, Property43_DriveRegistryPersistenceRoundTri
 
 // The system SHALL store database files with restricted file permissions
 // (not world-writable).
-RC_GTEST_PROP(ManifestStoreProperty, Property68_DatabaseFilePermissions, ()) {
+RC_GTEST_PROP(ManifestStoreProperty, DatabaseFilePermissions, ()) {
     fs::path db_path = make_temp_db_path();
     {
         auto store = ManifestStore::open(db_path);

@@ -9,7 +9,7 @@ using namespace caravault;
 // For any file in the manifest, there SHALL exist an associated version vector.
 // This property verifies that VersionVector objects can be constructed and maintain
 // their clock data, ensuring every file can have an associated version vector.
-RC_GTEST_PROP(VersionVectorProperty, Property9_VersionVectorPresence, ()) {
+RC_GTEST_PROP(VersionVectorProperty, VersionVectorPresence, ()) {
     // Generate arbitrary clock map by building it from a vector of pairs
     auto clock_pairs = *rc::gen::container<std::vector<std::pair<std::string, uint64_t>>>(
         rc::gen::pair(rc::gen::string<std::string>(), rc::gen::inRange<uint64_t>(0, 1000)));
@@ -33,7 +33,7 @@ RC_GTEST_PROP(VersionVectorProperty, Property9_VersionVectorPresence, ()) {
 
 // For any file modification on a drive, the version vector's logical clock
 // for that drive SHALL increase.
-RC_GTEST_PROP(VersionVectorProperty, Property10_VersionVectorClockIncrement, ()) {
+RC_GTEST_PROP(VersionVectorProperty, VersionVectorClockIncrement, ()) {
     // Generate initial version vector
     auto clock_pairs = *rc::gen::container<std::vector<std::pair<std::string, uint64_t>>>(
         rc::gen::pair(rc::gen::string<std::string>(), rc::gen::inRange<uint64_t>(0, 1000)));
@@ -73,7 +73,7 @@ RC_GTEST_PROP(VersionVectorProperty, Property10_VersionVectorClockIncrement, ())
 // - V1 CONCURRENT V2 iff ∃ drive_a: V1[drive_a] > V2[drive_a] AND ∃ drive_b: V2[drive_b] >
 // V1[drive_b]
 // - V1 EQUAL V2 iff ∀ drive: V1[drive] == V2[drive]
-RC_GTEST_PROP(VersionVectorProperty, Property11_VersionVectorCausalityComparison, ()) {
+RC_GTEST_PROP(VersionVectorProperty, VersionVectorCausalityComparison, ()) {
     // Generate two version vectors with overlapping drive IDs
     auto drive_ids = *rc::gen::container<std::vector<std::string>>(rc::gen::string<std::string>());
 
@@ -138,7 +138,7 @@ RC_GTEST_PROP(VersionVectorProperty, Property11_VersionVectorCausalityComparison
 
 // For any version vector, storing it to the database and reloading it SHALL
 // produce an equal version vector. This tests JSON serialization round-trip.
-RC_GTEST_PROP(VersionVectorProperty, Property12_VersionVectorPersistenceRoundTrip, ()) {
+RC_GTEST_PROP(VersionVectorProperty, VersionVectorPersistenceRoundTrip, ()) {
     // Generate arbitrary version vector
     auto clock_pairs = *rc::gen::container<std::vector<std::pair<std::string, uint64_t>>>(
         rc::gen::pair(rc::gen::string<std::string>(), rc::gen::inRange<uint64_t>(0, UINT64_MAX)));

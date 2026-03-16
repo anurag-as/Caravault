@@ -93,7 +93,7 @@ void verify_tree_structure(const MerkleNode& node) {
 
 // For any file, compute_file_hash SHALL produce the same SHA-256 digest as a reference
 // implementation.
-RC_GTEST_PROP(MerkleEngineProperty, Property5_SHA256HashComputation, ()) {
+RC_GTEST_PROP(MerkleEngineProperty, SHA256HashComputation, ()) {
     auto content = *rc::gen::container<std::string>(rc::gen::character<char>());
 
     TempDir td;
@@ -104,7 +104,7 @@ RC_GTEST_PROP(MerkleEngineProperty, Property5_SHA256HashComputation, ()) {
 
 // For any Merkle tree, each directory node's hash SHALL equal the SHA-256 of its sorted children's
 // hashes.
-RC_GTEST_PROP(MerkleEngineProperty, Property7_MerkleTreeStructureValidity, ()) {
+RC_GTEST_PROP(MerkleEngineProperty, MerkleTreeStructureValidity, ()) {
     auto file_count = *rc::gen::inRange<int>(1, 6);
     auto contents = *rc::gen::container<std::vector<std::string>>(
         file_count, rc::gen::container<std::string>(rc::gen::character<char>()));
@@ -121,7 +121,7 @@ RC_GTEST_PROP(MerkleEngineProperty, Property7_MerkleTreeStructureValidity, ()) {
 
 // For any file whose mtime and size are unchanged, a second build SHALL reuse the cached hash
 // without recomputation.
-RC_GTEST_PROP(MerkleEngineProperty, Property8_HashCachingOptimization, ()) {
+RC_GTEST_PROP(MerkleEngineProperty, HashCachingOptimization, ()) {
     auto content = *rc::gen::map(rc::gen::container<std::string>(rc::gen::character<char>()),
                                  [](std::string s) { return s.empty() ? std::string("x") : s; });
 
@@ -149,7 +149,7 @@ RC_GTEST_PROP(MerkleEngineProperty, Property8_HashCachingOptimization, ()) {
 
 // For any two trees, diff SHALL identify exactly the files added, modified, and deleted between
 // them.
-RC_GTEST_PROP(MerkleEngineProperty, Property14_MerkleTreeDiffCorrectness, ()) {
+RC_GTEST_PROP(MerkleEngineProperty, MerkleTreeDiffCorrectness, ()) {
     auto shared_count = *rc::gen::inRange<int>(0, 4);
     auto only1_count = *rc::gen::inRange<int>(0, 3);
     auto only2_count = *rc::gen::inRange<int>(0, 3);
@@ -191,7 +191,7 @@ RC_GTEST_PROP(MerkleEngineProperty, Property14_MerkleTreeDiffCorrectness, ()) {
 
 // For any two identical trees, diff SHALL return an empty result without traversing matching
 // subtrees.
-RC_GTEST_PROP(MerkleEngineProperty, Property15_MerkleTreeOptimization, ()) {
+RC_GTEST_PROP(MerkleEngineProperty, MerkleTreeOptimization, ()) {
     auto file_count = *rc::gen::inRange<int>(1, 6);
     auto contents = *rc::gen::container<std::vector<std::string>>(
         file_count, rc::gen::container<std::string>(rc::gen::character<char>()));
@@ -215,7 +215,7 @@ RC_GTEST_PROP(MerkleEngineProperty, Property15_MerkleTreeOptimization, ()) {
 
 // For any tree where only one file differs, diff SHALL identify exactly that one file and skip all
 // unchanged subtrees.
-RC_GTEST_PROP(MerkleEngineProperty, Property56_MerkleTreeComparisonComplexity, ()) {
+RC_GTEST_PROP(MerkleEngineProperty, MerkleTreeComparisonComplexity, ()) {
     TempDir td1, td2;
     TempStore ts1, ts2;
 
