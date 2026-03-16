@@ -63,6 +63,7 @@ add_executable(caravault
     src/version_vector.cpp
     src/manifest_store.cpp
     src/merkle_engine.cpp
+    src/bloom_filter.cpp
 )
 
 target_link_libraries(caravault
@@ -80,9 +81,11 @@ enable_testing()
 add_executable(unit_tests
     tests/unit/version_vector_test.cpp
     tests/unit/manifest_store_test.cpp
+    tests/unit/bloom_filter_test.cpp
     src/version_vector.cpp
     src/manifest_store.cpp
     src/merkle_engine.cpp
+    src/bloom_filter.cpp
 )
 
 target_link_libraries(unit_tests
@@ -101,6 +104,7 @@ add_executable(property_tests
     src/version_vector.cpp
     src/manifest_store.cpp
     src/merkle_engine.cpp
+    src/bloom_filter.cpp
 )
 
 target_include_directories(property_tests
@@ -124,6 +128,7 @@ add_executable(integration_tests
     src/version_vector.cpp
     src/manifest_store.cpp
     src/merkle_engine.cpp
+    src/bloom_filter.cpp
 )
 
 target_link_libraries(integration_tests
