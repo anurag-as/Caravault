@@ -1,11 +1,11 @@
-#include <gtest/gtest.h>
-#include <rapidcheck.h>
-#include <rapidcheck/gtest.h>
 #include "manifest_store.hpp"
 #include "version_vector.hpp"
 
 #include <algorithm>
 #include <filesystem>
+#include <gtest/gtest.h>
+#include <rapidcheck.h>
+#include <rapidcheck/gtest.h>
 #include <set>
 #include <string>
 #include <vector>
@@ -36,9 +36,7 @@ struct TempStore {
     fs::path path;
     ManifestStore store;
 
-    explicit TempStore()
-        : path(make_temp_db_path()),
-          store(ManifestStore::open(path)) {}
+    explicit TempStore() : path(make_temp_db_path()), store(ManifestStore::open(path)) {}
 
     ~TempStore() {
         store.close();
@@ -63,26 +61,24 @@ FileMetadata make_metadata(const std::string& path,
                            bool has_inode,
                            uint64_t inode_val) {
     FileMetadata m;
-    m.path      = path.empty() ? "file" : path;
-    m.hash      = hash.empty() ? "0" : hash;
-    m.size      = size;
-    m.mtime     = mtime;
+    m.path = path.empty() ? "file" : path;
+    m.hash = hash.empty() ? "0" : hash;
+    m.size = size;
+    m.mtime = mtime;
     m.tombstone = tombstone;
-    m.inode     = has_inode ? std::optional<uint64_t>{inode_val} : std::nullopt;
+    m.inode = has_inode ? std::optional<uint64_t>{inode_val} : std::nullopt;
     return m;
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 // For any sequence of drive detection events, all assigned drive identifiers
 // SHALL be unique across all drives.
 RC_GTEST_PROP(ManifestStoreProperty, Property1_DriveIdUniqueness, ()) {
     // Generate a list of drive IDs (may contain duplicates in input)
     auto raw_ids = *rc::gen::container<std::vector<std::string>>(
-        rc::gen::map(rc::gen::string<std::string>(), [](std::string s) {
-            return s.empty() ? std::string("d") : s;
-        })
-    );
+        rc::gen::map(rc::gen::string<std::string>(),
+                     [](std::string s) { return s.empty() ? std::string("d") : s; }));
 
     TempStore ts;
     for (const auto& id : raw_ids) {
@@ -130,10 +126,8 @@ RC_GTEST_PROP(ManifestStoreProperty, Property2_DriveRecognitionRoundTrip, ()) {
 RC_GTEST_PROP(ManifestStoreProperty, Property3_DriveRegistryCompleteness, ()) {
     // Generate a set of unique non-empty drive IDs
     auto raw_ids = *rc::gen::container<std::vector<std::string>>(
-        rc::gen::map(rc::gen::string<std::string>(), [](std::string s) {
-            return s.empty() ? std::string("d") : s;
-        })
-    );
+        rc::gen::map(rc::gen::string<std::string>(),
+                     [](std::string s) { return s.empty() ? std::string("d") : s; }));
 
     // Deduplicate to form the expected set
     std::set<std::string> expected(raw_ids.begin(), raw_ids.end());
@@ -153,31 +147,28 @@ RC_GTEST_PROP(ManifestStoreProperty, Property3_DriveRegistryCompleteness, ()) {
 // For any file metadata, storing it to the SQLite database and reloading it
 // SHALL produce equal metadata.
 RC_GTEST_PROP(ManifestStoreProperty, Property41_FileMetadataPersistenceRoundTrip, ()) {
-    auto path_str   = *rc::gen::map(rc::gen::string<std::string>(),
-                                    [](std::string s){ return s.empty() ? std::string("f") : s; });
-    auto hash_str   = *rc::gen::map(rc::gen::string<std::string>(),
-                                    [](std::string s){ return s.empty() ? std::string("0") : s; });
-    auto size_val   = *rc::gen::inRange<uint64_t>(0, UINT64_MAX);
-    auto mtime_val  = *rc::gen::inRange<uint64_t>(0, UINT64_MAX);
-    auto tombstone  = *rc::gen::arbitrary<bool>();
-    auto has_inode  = *rc::gen::arbitrary<bool>();
-    auto inode_val  = *rc::gen::inRange<uint64_t>(0, UINT64_MAX);
+    auto path_str = *rc::gen::map(rc::gen::string<std::string>(),
+                                  [](std::string s) { return s.empty() ? std::string("f") : s; });
+    auto hash_str = *rc::gen::map(rc::gen::string<std::string>(),
+                                  [](std::string s) { return s.empty() ? std::string("0") : s; });
+    auto size_val = *rc::gen::inRange<uint64_t>(0, UINT64_MAX);
+    auto mtime_val = *rc::gen::inRange<uint64_t>(0, UINT64_MAX);
+    auto tombstone = *rc::gen::arbitrary<bool>();
+    auto has_inode = *rc::gen::arbitrary<bool>();
+    auto inode_val = *rc::gen::inRange<uint64_t>(0, UINT64_MAX);
 
     // Build a VersionVector with a few arbitrary clocks
     auto clock_pairs = *rc::gen::container<std::vector<std::pair<std::string, uint64_t>>>(
-        rc::gen::pair(
-            rc::gen::map(rc::gen::string<std::string>(),
-                         [](std::string s){ return s.empty() ? std::string("d") : s; }),
-            rc::gen::inRange<uint64_t>(0, 1000)
-        )
-    );
+        rc::gen::pair(rc::gen::map(rc::gen::string<std::string>(),
+                                   [](std::string s) { return s.empty() ? std::string("d") : s; }),
+                      rc::gen::inRange<uint64_t>(0, 1000)));
     std::map<std::string, uint64_t> clocks;
     for (const auto& [k, v] : clock_pairs) {
         clocks[k] = v;
     }
 
-    FileMetadata original = make_metadata(path_str, hash_str, size_val, mtime_val,
-                                          tombstone, has_inode, inode_val);
+    FileMetadata original =
+        make_metadata(path_str, hash_str, size_val, mtime_val, tombstone, has_inode, inode_val);
     original.version_vector = VersionVector(clocks);
 
     TempStore ts;
@@ -192,10 +183,10 @@ RC_GTEST_PROP(ManifestStoreProperty, Property41_FileMetadataPersistenceRoundTrip
 // reloading it SHALL produce an equal tree structure.
 RC_GTEST_PROP(ManifestStoreProperty, Property42_MerkleTreePersistenceRoundTrip, ()) {
     auto path_str = *rc::gen::map(rc::gen::string<std::string>(),
-                                  [](std::string s){ return s.empty() ? std::string("p") : s; });
+                                  [](std::string s) { return s.empty() ? std::string("p") : s; });
     auto hash_str = *rc::gen::map(rc::gen::string<std::string>(),
-                                  [](std::string s){ return s.empty() ? std::string("h") : s; });
-    auto level    = *rc::gen::inRange<int>(0, 100);
+                                  [](std::string s) { return s.empty() ? std::string("h") : s; });
+    auto level = *rc::gen::inRange<int>(0, 100);
 
     TempStore ts;
     ts.store.upsert_merkle_node(path_str, hash_str, level);
@@ -210,8 +201,7 @@ RC_GTEST_PROP(ManifestStoreProperty, Property42_MerkleTreePersistenceRoundTrip, 
 RC_GTEST_PROP(ManifestStoreProperty, Property43_DriveRegistryPersistenceRoundTrip, ()) {
     auto raw_ids = *rc::gen::container<std::vector<std::string>>(
         rc::gen::map(rc::gen::string<std::string>(),
-                     [](std::string s){ return s.empty() ? std::string("d") : s; })
-    );
+                     [](std::string s) { return s.empty() ? std::string("d") : s; }));
     std::set<std::string> expected(raw_ids.begin(), raw_ids.end());
 
     fs::path db_path = make_temp_db_path();

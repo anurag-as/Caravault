@@ -2,12 +2,13 @@
 #define CARAVAULT_MANIFEST_STORE_HPP
 
 #include "version_vector.hpp"
+
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <sqlite3.h>
 #include <string>
 #include <vector>
-#include <sqlite3.h>
 
 namespace caravault {
 
@@ -17,13 +18,13 @@ namespace fs = std::filesystem;
  * File metadata stored in the manifest database.
  */
 struct FileMetadata {
-    std::string path;              // Relative path from drive root
-    std::string hash;              // SHA-256 hash of contents
-    uint64_t size;                 // File size in bytes
-    uint64_t mtime;                // Modification time (Unix timestamp)
-    VersionVector version_vector;  // Causality tracking
-    bool tombstone = false;        // True if file deleted
-    std::optional<uint64_t> inode; // Inode number (for rename detection)
+    std::string path;               // Relative path from drive root
+    std::string hash;               // SHA-256 hash of contents
+    uint64_t size;                  // File size in bytes
+    uint64_t mtime;                 // Modification time (Unix timestamp)
+    VersionVector version_vector;   // Causality tracking
+    bool tombstone = false;         // True if file deleted
+    std::optional<uint64_t> inode;  // Inode number (for rename detection)
 
     bool operator==(const FileMetadata& other) const;
 };
@@ -107,6 +108,6 @@ private:
     [[noreturn]] void throw_error(const std::string& context) const;
 };
 
-} // namespace caravault
+}  // namespace caravault
 
-#endif // CARAVAULT_MANIFEST_STORE_HPP
+#endif  // CARAVAULT_MANIFEST_STORE_HPP

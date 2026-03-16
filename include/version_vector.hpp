@@ -9,29 +9,24 @@ namespace caravault {
 
 /**
  * VersionVector tracks causality relationships between file versions across drives.
- * 
+ *
  * Each drive maintains a logical clock that increments with each modification.
  * Version vectors enable detection of concurrent modifications (conflicts) by
  * comparing the causal ordering of file versions.
- * 
+ *
  * Missing drive IDs are treated as having clock value 0.
  */
 class VersionVector {
 public:
     /**
      * Ordering relationship between two version vectors.
-     * 
+     *
      * DOMINATES: This version causally precedes the other (this is newer)
      * DOMINATED_BY: The other version causally precedes this (other is newer)
      * CONCURRENT: Neither causally precedes the other (conflict)
      * EQUAL: Both versions are identical
      */
-    enum class Ordering {
-        DOMINATES,
-        DOMINATED_BY,
-        CONCURRENT,
-        EQUAL
-    };
+    enum class Ordering { DOMINATES, DOMINATED_BY, CONCURRENT, EQUAL };
 
     /**
      * Construct an empty version vector with all clocks at 0.
@@ -53,7 +48,8 @@ public:
      *
      * - DOMINATES:    ∀ drive: this[drive] >= other[drive] AND ∃ drive: this[drive] > other[drive]
      * - DOMINATED_BY: other DOMINATES this
-     * - CONCURRENT:   ∃ drive_a: this[drive_a] > other[drive_a] AND ∃ drive_b: other[drive_b] > this[drive_b]
+     * - CONCURRENT:   ∃ drive_a: this[drive_a] > other[drive_a] AND ∃ drive_b: other[drive_b] >
+     * this[drive_b]
      * - EQUAL:        ∀ drive: this[drive] == other[drive]
      */
     Ordering compare(const VersionVector& other) const;
@@ -74,6 +70,6 @@ private:
     std::map<std::string, uint64_t> clocks_;
 };
 
-} // namespace caravault
+}  // namespace caravault
 
-#endif // CARAVAULT_VERSION_VECTOR_HPP
+#endif  // CARAVAULT_VERSION_VECTOR_HPP

@@ -1,7 +1,8 @@
 #include "manifest_store.hpp"
-#include <gtest/gtest.h>
-#include <filesystem>
+
 #include <cstdio>
+#include <filesystem>
+#include <gtest/gtest.h>
 
 namespace fs = std::filesystem;
 using namespace caravault;
@@ -40,8 +41,10 @@ TEST_F(ManifestStoreTest, RegisterDriveAndGetAllDrives) {
     // Order not guaranteed; check both are present
     bool found_a = false, found_b = false;
     for (const auto& d : drives) {
-        if (d == "drive-A") found_a = true;
-        if (d == "drive-B") found_b = true;
+        if (d == "drive-A")
+            found_a = true;
+        if (d == "drive-B")
+            found_b = true;
     }
     EXPECT_TRUE(found_a);
     EXPECT_TRUE(found_b);
@@ -49,7 +52,7 @@ TEST_F(ManifestStoreTest, RegisterDriveAndGetAllDrives) {
 
 TEST_F(ManifestStoreTest, RegisterDriveIsIdempotent) {
     store_.register_drive("drive-A");
-    store_.register_drive("drive-A"); // should not throw or duplicate
+    store_.register_drive("drive-A");  // should not throw or duplicate
     EXPECT_EQ(store_.get_all_drives().size(), 1u);
 }
 

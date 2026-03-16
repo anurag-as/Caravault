@@ -134,5 +134,26 @@ add_test(NAME UnitTests COMMAND unit_tests)
 add_test(NAME PropertyTests COMMAND property_tests)
 add_test(NAME IntegrationTests COMMAND integration_tests)
 
+# clang-format targets
+find_program(CLANG_FORMAT clang-format)
+if(CLANG_FORMAT)
+    file(GLOB_RECURSE FORMAT_SOURCES
+        "${PROJECT_SOURCE_DIR}/src/*.cpp"
+        "${PROJECT_SOURCE_DIR}/include/*.hpp"
+        "${PROJECT_SOURCE_DIR}/tests/*.cpp"
+        "${PROJECT_SOURCE_DIR}/examples/*.cpp"
+    )
+    add_custom_target(format
+        COMMAND ${CLANG_FORMAT} -i ${FORMAT_SOURCES}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        COMMENT "Formatting source files with clang-format"
+    )
+    add_custom_target(format-check
+        COMMAND ${CLANG_FORMAT} --dry-run --Werror ${FORMAT_SOURCES}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        COMMENT "Checking source formatting with clang-format"
+    )
+endif()
+
 # Installation
 install(TARGETS caravault DESTINATION bin)

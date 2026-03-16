@@ -1,4 +1,5 @@
 #include "manifest_store.hpp"
+
 #include <chrono>
 #include <stdexcept>
 #include <string>
@@ -7,23 +8,19 @@ namespace caravault {
 
 namespace {
 int64_t current_unix_time() {
-    return static_cast<int64_t>(
-        std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count());
+    return static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+                                    std::chrono::system_clock::now().time_since_epoch())
+                                    .count());
 }
-} // namespace
+}  // namespace
 
 // ---------------------------------------------------------------------------
 // FileMetadata equality
 // ---------------------------------------------------------------------------
 
 bool FileMetadata::operator==(const FileMetadata& other) const {
-    return path == other.path &&
-           hash == other.hash &&
-           size == other.size &&
-           mtime == other.mtime &&
-           version_vector == other.version_vector &&
-           tombstone == other.tombstone &&
+    return path == other.path && hash == other.hash && size == other.size && mtime == other.mtime &&
+           version_vector == other.version_vector && tombstone == other.tombstone &&
            inode == other.inode;
 }
 
@@ -31,8 +28,7 @@ ManifestStore::~ManifestStore() {
     close();
 }
 
-ManifestStore::ManifestStore(ManifestStore&& other) noexcept
-    : db_(other.db_) {
+ManifestStore::ManifestStore(ManifestStore&& other) noexcept : db_(other.db_) {
     other.db_ = nullptr;
 }
 
@@ -62,7 +58,7 @@ ManifestStore ManifestStore::open(const fs::path& db_path) {
         throw std::runtime_error(msg);
     }
 
-    store.exec("PRAGMA journal_mode=WAL"); // WAL mode: better concurrency and crash safety
+    store.exec("PRAGMA journal_mode=WAL");  // WAL mode: better concurrency and crash safety
     store.exec("PRAGMA foreign_keys=ON");
 
     store.create_schema();
@@ -230,10 +226,10 @@ static FileMetadata row_to_file_metadata(sqlite3_stmt* stmt) {
         return p ? p : "";
     };
 
-    m.path      = col_text(0);
-    m.hash      = col_text(1);
-    m.size      = static_cast<uint64_t>(sqlite3_column_int64(stmt, 2));
-    m.mtime     = static_cast<uint64_t>(sqlite3_column_int64(stmt, 3));
+    m.path = col_text(0);
+    m.hash = col_text(1);
+    m.size = static_cast<uint64_t>(sqlite3_column_int64(stmt, 2));
+    m.mtime = static_cast<uint64_t>(sqlite3_column_int64(stmt, 3));
     m.version_vector = VersionVector::from_json(col_text(4));
     m.tombstone = sqlite3_column_int(stmt, 5) != 0;
     if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
@@ -263,8 +259,7 @@ std::optional<FileMetadata> ManifestStore::get_file(const std::string& path) {
 }
 
 std::vector<FileMetadata> ManifestStore::get_all_files() {
-    const char* sql =
-        "SELECT path, hash, size, mtime, version_vector, tombstone, inode FROM files";
+    const char* sql = "SELECT path, hash, size, mtime, version_vector, tombstone, inode FROM files";
 
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -296,8 +291,8 @@ void ManifestStore::delete_file(const std::string& path) {
 }
 
 void ManifestStore::upsert_merkle_node(const std::string& path,
-                                        const std::string& hash,
-                                        int level) {
+                                       const std::string& hash,
+                                       int level) {
     const char* sql =
         "INSERT INTO merkle_nodes(path, level, hash) VALUES(?,?,?)"
         " ON CONFLICT(path, level) DO UPDATE SET hash=excluded.hash";
@@ -318,10 +313,8 @@ void ManifestStore::upsert_merkle_node(const std::string& path,
     }
 }
 
-std::optional<std::string> ManifestStore::get_merkle_hash(const std::string& path,
-                                                            int level) {
-    const char* sql =
-        "SELECT hash FROM merkle_nodes WHERE path=? AND level=?";
+std::optional<std::string> ManifestStore::get_merkle_hash(const std::string& path, int level) {
+    const char* sql = "SELECT hash FROM merkle_nodes WHERE path=? AND level=?";
 
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -340,8 +333,7 @@ std::optional<std::string> ManifestStore::get_merkle_hash(const std::string& pat
     return result;
 }
 
-uint64_t ManifestStore::begin_operation(const std::string& operation,
-                                         const std::string& path) {
+uint64_t ManifestStore::begin_operation(const std::string& operation, const std::string& path) {
     const char* sql =
         "INSERT INTO transaction_log(operation, path, timestamp, completed)"
         " VALUES(?,?,?,0)";
@@ -393,13 +385,13 @@ std::vector<PendingOperation> ManifestStore::get_incomplete_operations() {
     std::vector<PendingOperation> ops;
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         PendingOperation op;
-        op.id        = static_cast<uint64_t>(sqlite3_column_int64(stmt, 0));
+        op.id = static_cast<uint64_t>(sqlite3_column_int64(stmt, 0));
         auto col_text = [&](int col) -> std::string {
             const char* p = reinterpret_cast<const char*>(sqlite3_column_text(stmt, col));
             return p ? p : "";
         };
         op.operation = col_text(1);
-        op.path      = col_text(2);
+        op.path = col_text(2);
         op.timestamp = static_cast<uint64_t>(sqlite3_column_int64(stmt, 3));
         ops.push_back(std::move(op));
     }
@@ -425,4 +417,4 @@ void ManifestStore::throw_error(const std::string& context) const {
     throw std::runtime_error(msg);
 }
 
-} // namespace caravault
+}  // namespace caravault
