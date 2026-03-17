@@ -14,6 +14,9 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build (${{ matrix.os }})
@@ -26,10 +29,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ── macOS dependencies ──────────────────────────────────────────────
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: brew install cmake sqlite openssl
 
       # ── Linux dependencies ──────────────────────────────────────────────
       - name: Install dependencies (Linux)
