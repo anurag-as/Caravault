@@ -11,17 +11,74 @@ Caravault is an offline multi-drive file synchronization system that enables fil
 - **Crash-Safe Operations**: Atomic writes with transaction log recovery
 - **Cross-Platform**: Supports Linux, macOS, and Windows
 
+## Installation
+
+### macOS
+
+Download the latest `.dmg` from the [Releases](../../releases) page, open it, and drag `caravault` to a location on your `PATH` (e.g. `/usr/local/bin`).
+
+Or install the dependencies and build from source (see [Building](#building)).
+
+### Linux
+
+**Debian / Ubuntu (.deb)**
+```bash
+sudo dpkg -i caravault-<version>-linux-x86_64.deb
+```
+
+**Fedora / RHEL / openSUSE (.rpm)**
+```bash
+sudo rpm -i caravault-<version>-linux-x86_64.rpm
+# or with dnf:
+sudo dnf install ./caravault-<version>-linux-x86_64.rpm
+```
+
+### Windows
+
+Download the latest `caravault-<version>-windows-x64.exe` installer from the [Releases](../../releases) page, run it, and follow the prompts. The installer adds `caravault` to your `PATH` automatically.
+
+---
+
 ## Building
 
+### macOS
+
 ```bash
-# Install dependencies (macOS)
 brew install cmake sqlite openssl clang-format
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+# Create .dmg package
+cd build && cpack
+```
 
-# Build and test
-cmake -S . -B build && cmake --build build && ctest --test-dir build
+### Linux
 
-# Format code
-clang-format -i src/*.cpp include/*.hpp tests/**/*.cpp
+```bash
+# Debian/Ubuntu
+sudo apt install cmake libsqlite3-dev libssl-dev clang-format
+# Fedora/RHEL
+sudo dnf install cmake sqlite-devel openssl-devel clang-format
+
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+# Create .deb and .rpm packages (requires rpmbuild for RPM)
+cd build && cpack
+```
+
+### Windows
+
+```powershell
+# Install NSIS from https://nsis.sourceforge.io before packaging
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+# Create NSIS installer
+cd build && cpack -C Release
+```
+
+### Run tests
+
+```bash
+ctest --test-dir build --output-on-failure
 ```
 
 ## Usage
