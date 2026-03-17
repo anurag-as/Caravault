@@ -237,7 +237,7 @@ RC_GTEST_PROP(ManifestStoreProperty, DatabaseFilePermissions, ()) {
 #ifndef _WIN32
     struct stat st{};
     RC_ASSERT(::stat(db_path.string().c_str(), &st) == 0);
-    RC_ASSERT((st.st_mode & S_IWOTH) == 0u);
+    RC_ASSERT(static_cast<int>(st.st_mode & S_IWOTH) == 0);
 #endif
 
     fs::remove(db_path);
