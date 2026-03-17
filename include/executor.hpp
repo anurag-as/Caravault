@@ -2,6 +2,7 @@
 #define CARAVAULT_EXECUTOR_HPP
 
 #include "manifest_store.hpp"
+#include "progress_reporter.hpp"
 #include "sync_planner.hpp"
 
 #include <map>
@@ -34,11 +35,14 @@ public:
      * Execute a single SyncOp.
      * drive_roots maps drive_id -> absolute mount-point path on the host.
      * manifests   maps drive_id -> ManifestStore* for that drive.
+     * reporter    optional progress reporter; if non-null, receives byte and file updates.
      * Never throws; errors are captured in ExecutionResult.
      */
     ExecutionResult execute(const SyncOp& op,
                             const std::map<std::string, fs::path>& drive_roots,
-                            std::map<std::string, ManifestStore*>& manifests);
+                            std::map<std::string, ManifestStore*>& manifests,
+                            ProgressReporter* reporter = nullptr,
+                            size_t* files_processed_counter = nullptr);
 
     /**
      * Process incomplete entries in the transaction log on startup.
@@ -92,7 +96,9 @@ private:
                       const fs::path& target_path,
                       const std::string& expected_hash,
                       const FileMetadata& new_meta,
-                      ManifestStore& target_store);
+                      ManifestStore& target_store,
+                      ProgressReporter* reporter = nullptr,
+                      size_t initial_bytes_transferred = 0);
 
     /** Copy permissions and mtime from source to target (best-effort, no-throw). */
     static void copy_metadata(const fs::path& source, const fs::path& target);

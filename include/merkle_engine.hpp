@@ -2,6 +2,7 @@
 #define CARAVAULT_MERKLE_ENGINE_HPP
 
 #include "manifest_store.hpp"
+#include "progress_reporter.hpp"
 
 #include <string>
 #include <vector>
@@ -72,6 +73,14 @@ public:
                                  std::vector<ScanError>& errors);
 
     /**
+     * Overload with progress reporting. Calls reporter->update() for each file scanned.
+     */
+    static MerkleNode build_tree(const fs::path& root_path,
+                                 ManifestStore& store,
+                                 std::vector<ScanError>& errors,
+                                 ProgressReporter* reporter);
+
+    /**
      * Files that differ between two trees.
      * Only leaf nodes (level == 0) appear in these lists.
      */
@@ -91,7 +100,9 @@ private:
     static MerkleNode build_node(const fs::path& root_path,
                                  const fs::path& current_path,
                                  ManifestStore& store,
-                                 std::vector<ScanError>* errors);
+                                 std::vector<ScanError>* errors,
+                                 ProgressReporter* reporter = nullptr,
+                                 size_t* scanned_counter = nullptr);
 
     static void collect_leaves(const MerkleNode& node, std::vector<std::string>& out);
 };

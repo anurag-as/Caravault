@@ -1,4 +1,5 @@
 #include "merkle_engine.hpp"
+#include "progress_reporter.hpp"
 
 #include <algorithm>
 #include <array>
@@ -103,7 +104,9 @@ std::string MerkleEngine::compute_directory_hash(const std::vector<std::string>&
 MerkleNode MerkleEngine::build_node(const fs::path& root_path,
                                     const fs::path& current_path,
                                     ManifestStore& store,
-                                    std::vector<ScanError>* errors) {
+                                    std::vector<ScanError>* errors,
+                                    ProgressReporter* reporter,
+                                    size_t* scanned_counter) {
     MerkleNode node;
     std::error_code ec;
     node.path = fs::relative(current_path, root_path, ec).generic_string();
@@ -135,6 +138,9 @@ MerkleNode MerkleEngine::build_node(const fs::path& root_path,
         if (cached.has_value() && !cached->hash.empty() && cached->size == file_size &&
             cached->mtime == mtime) {
             node.hash = cached->hash;
+            // Report progress even for cached files.
+            if (reporter && scanned_counter)
+                reporter->update(++(*scanned_counter), "Scanning: " + node.path);
             return node;
         }
 
@@ -160,6 +166,10 @@ MerkleNode MerkleEngine::build_node(const fs::path& root_path,
                 errors->push_back({node.path, std::string("db_write: ") + e.what()});
         }
 
+        // Report progress after processing this file.
+        if (reporter && scanned_counter)
+            reporter->update(++(*scanned_counter), "Scanning: " + node.path);
+
     } else if (fs::is_directory(current_path, ec) && !ec) {
         node.level = 1;
 
@@ -182,7 +192,8 @@ MerkleNode MerkleEngine::build_node(const fs::path& root_path,
             bool is_file = fs::is_regular_file(entry, entry_ec);
             bool is_dir = !entry_ec && !is_file && fs::is_directory(entry, entry_ec);
             if (!entry_ec && (is_file || is_dir)) {
-                MerkleNode child = build_node(root_path, entry, store, errors);
+                MerkleNode child =
+                    build_node(root_path, entry, store, errors, reporter, scanned_counter);
                 if (!child.hash.empty()) {
                     child_hashes.push_back(child.hash);
                     node.children.push_back(std::move(child));
@@ -203,13 +214,21 @@ MerkleNode MerkleEngine::build_node(const fs::path& root_path,
 }
 
 MerkleNode MerkleEngine::build_tree(const fs::path& root_path, ManifestStore& store) {
-    return build_node(root_path, root_path, store, nullptr);
+    return build_node(root_path, root_path, store, nullptr, nullptr, nullptr);
 }
 
 MerkleNode MerkleEngine::build_tree(const fs::path& root_path,
                                     ManifestStore& store,
                                     std::vector<ScanError>& errors) {
-    return build_node(root_path, root_path, store, &errors);
+    return build_node(root_path, root_path, store, &errors, nullptr, nullptr);
+}
+
+MerkleNode MerkleEngine::build_tree(const fs::path& root_path,
+                                    ManifestStore& store,
+                                    std::vector<ScanError>& errors,
+                                    ProgressReporter* reporter) {
+    size_t scanned = 0;
+    return build_node(root_path, root_path, store, &errors, reporter, &scanned);
 }
 
 void MerkleEngine::collect_leaves(const MerkleNode& node, std::vector<std::string>& out) {

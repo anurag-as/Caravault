@@ -15,35 +15,47 @@ Caravault is an offline multi-drive file synchronization system that enables fil
 
 ```bash
 # Install dependencies (macOS)
-brew install cmake sqlite openssl
+brew install cmake sqlite openssl clang-format
 
 # Build and test
 cmake -S . -B build && cmake --build build && ctest --test-dir build
+
+# Format code
+clang-format -i src/*.cpp include/*.hpp tests/**/*.cpp
 ```
 
 ## Usage
 
 ```bash
-# Synchronize all connected drives
-caravault sync
+# Scan specific drives (required before sync)
+caravault scan --drive /Volumes/DriveA --drive /Volumes/DriveB
+
+# Scan all auto-detected drives
+caravault scan --all
+
+# Synchronize specific drives
+caravault sync --drive /Volumes/DriveA --drive /Volumes/DriveB
+
+# Synchronize all auto-detected drives
+caravault sync --all
 
 # Preview changes without applying them
-caravault sync --dry-run
+caravault sync --all --dry-run
 
-# Show status of connected drives
-caravault status
+# Show status of specific drives
+caravault status --drive /Volumes/DriveA
 
-# List detected conflicts
-caravault conflicts
+# Show status of all auto-detected drives
+caravault status --all
 
-# Manually resolve a conflict
-caravault resolve <path> --use-drive <drive_id>
+# List detected conflicts across drives
+caravault conflicts --all
 
-# Rebuild manifest for a drive
-caravault scan --drive <drive_id>
+# Manually resolve a conflict (specify which drives to update)
+caravault resolve <path> --use-drive <drive_id> --all
 
-# Verify data integrity
-caravault verify
+# Verify data integrity of specific drives
+caravault verify --drive /Volumes/DriveA
 
 # Configure settings
 caravault config --set <key>=<value>

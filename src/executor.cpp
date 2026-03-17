@@ -1,6 +1,7 @@
 #include "executor.hpp"
 
 #include "merkle_engine.hpp"
+#include "progress_reporter.hpp"
 
 #include <array>
 #include <fstream>
@@ -44,6 +45,47 @@ size_t copy_file_contents(const fs::path& src, const fs::path& dst) {
         if (!out)
             throw std::runtime_error("Write failed (disk full or I/O error): " + dst.string());
         total += n;
+    }
+    out.flush();
+    if (!out)
+        throw std::runtime_error("Flush failed (disk full or I/O error): " + dst.string());
+    return total;
+}
+
+constexpr size_t kLargeFileThreshold = 1024 * 1024;  // 1 MB
+constexpr size_t kCopyChunkSize = 64 * 1024;          // 64 KB
+
+// Copy src -> dst in 64 KB chunks, calling reporter->update_bytes() after each chunk.
+// Returns total bytes written.
+size_t copy_file_with_progress(const fs::path& src,
+                               const fs::path& dst,
+                               ProgressReporter* reporter,
+                               size_t initial_bytes_transferred) {
+    std::ifstream in(src, std::ios::binary);
+    if (!in) {
+        std::error_code ec;
+        if (!fs::exists(src, ec))
+            throw std::runtime_error("Source file not found: " + src.string());
+        throw std::runtime_error("Cannot read source file (check permissions): " + src.string());
+    }
+
+    std::ofstream out(dst, std::ios::binary | std::ios::trunc);
+    if (!out)
+        throw std::runtime_error("Cannot open destination for writing (check permissions/space): " +
+                                 dst.string());
+
+    std::array<char, kCopyChunkSize> buf{};
+    size_t total = 0;
+    size_t running_bytes = initial_bytes_transferred;
+    while (in.read(buf.data(), kCopyChunkSize) || in.gcount() > 0) {
+        auto n = static_cast<size_t>(in.gcount());
+        out.write(buf.data(), static_cast<std::streamsize>(n));
+        if (!out)
+            throw std::runtime_error("Write failed (disk full or I/O error): " + dst.string());
+        total += n;
+        running_bytes += n;
+        if (reporter)
+            reporter->update_bytes(running_bytes);
     }
     out.flush();
     if (!out)
@@ -169,7 +211,9 @@ void Executor::atomic_write(const fs::path& source_path,
                             const fs::path& target_path,
                             const std::string& expected_hash,
                             const FileMetadata& new_meta,
-                            ManifestStore& target_store) {
+                            ManifestStore& target_store,
+                            ProgressReporter* reporter,
+                            size_t initial_bytes_transferred) {
     if (!verify_hash(source_path, expected_hash))
         throw std::runtime_error("Source hash mismatch before transfer: " + source_path.string());
 
@@ -181,7 +225,15 @@ void Executor::atomic_write(const fs::path& source_path,
     uint64_t log_id = target_store.begin_operation("WRITE", target_path.string());
 
     try {
-        copy_file_contents(source_path, tmp);
+        std::error_code size_ec;
+        auto file_size = fs::file_size(source_path, size_ec);
+        bool is_large = !size_ec && file_size > kLargeFileThreshold;
+
+        if (is_large && reporter) {
+            copy_file_with_progress(source_path, tmp, reporter, initial_bytes_transferred);
+        } else {
+            copy_file_contents(source_path, tmp);
+        }
         copy_metadata(source_path, tmp);
 
         if (!verify_hash(tmp, expected_hash)) {
@@ -203,7 +255,9 @@ void Executor::atomic_write(const fs::path& source_path,
 
 Executor::ExecutionResult Executor::execute(const SyncOp& op,
                                             const std::map<std::string, fs::path>& drive_roots,
-                                            std::map<std::string, ManifestStore*>& manifests) {
+                                            std::map<std::string, ManifestStore*>& manifests,
+                                            ProgressReporter* reporter,
+                                            size_t* files_processed_counter) {
     ExecutionResult result;
 
     try {
@@ -260,11 +314,16 @@ Executor::ExecutionResult Executor::execute(const SyncOp& op,
                 FileMetadata new_meta = *src_meta;
                 new_meta.version_vector = op.new_version_vector;
 
+                // Determine bytes already transferred (for cumulative progress).
+                size_t bytes_before = reporter ? reporter->bytes_transferred() : 0;
+
                 atomic_write(src_root_it->second / op.path,
                              target_root / op.path,
                              src_meta->hash,
                              new_meta,
-                             *target_store);
+                             *target_store,
+                             reporter,
+                             bytes_before);
 
                 result.bytes_transferred = src_meta->size;
                 result.success = true;
@@ -337,6 +396,11 @@ Executor::ExecutionResult Executor::execute(const SyncOp& op,
     } catch (const std::exception& e) {
         result.success = false;
         result.error_message = e.what();
+    }
+
+    // Report per-file progress after the operation completes.
+    if (result.success && reporter && files_processed_counter) {
+        reporter->update(++(*files_processed_counter), op.path);
     }
 
     return result;
