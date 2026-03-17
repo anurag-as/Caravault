@@ -213,19 +213,11 @@ set(CPACK_RESOURCE_FILE_README "${PROJECT_SOURCE_DIR}/README.md")
 set(CPACK_STRIP_FILES TRUE)
 
 if(APPLE)
-    # Produce a TGZ archive containing just the binary for CLI distribution
+    # TGZ archive with just the binary — standard for CLI tools on macOS
     set(CPACK_GENERATOR "TGZ")
     set(CPACK_PACKAGE_FILE_NAME "caravault-${PROJECT_VERSION}-macos")
-    # Only include the binary, not headers/libs
-    set(CPACK_INSTALL_CMAKE_PROJECTS "${CMAKE_BINARY_DIR};${PROJECT_NAME};ALL;/")
-    install(TARGETS caravault
-        RUNTIME DESTINATION .
-        COMPONENT Runtime
-    )
-    set(CPACK_COMPONENTS_ALL Runtime)
-    set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
 elseif(WIN32)
-    # Produce an NSIS installer (.exe); requires NSIS to be installed on the build host
+    # NSIS installer — NSIS must be installed on the build host
     set(CPACK_GENERATOR "NSIS")
     set(CPACK_NSIS_DISPLAY_NAME "Caravault ${PROJECT_VERSION}")
     set(CPACK_NSIS_PACKAGE_NAME "Caravault")
@@ -234,7 +226,7 @@ elseif(WIN32)
     set(CPACK_PACKAGE_INSTALL_DIRECTORY "Caravault")
     set(CPACK_PACKAGE_FILE_NAME "caravault-${PROJECT_VERSION}-windows-x64")
 else()
-    # Produce both .deb and .rpm on Linux
+    # .deb and .rpm on Linux
     set(CPACK_GENERATOR "DEB;RPM")
     set(CPACK_PACKAGE_FILE_NAME "caravault-${PROJECT_VERSION}-linux-x86_64")
 
