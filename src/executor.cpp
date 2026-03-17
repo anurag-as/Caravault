@@ -10,6 +10,9 @@
 
 #ifdef _WIN32
 #include <windows.h>
+// <winnt.h> defines DELETE as a file-access macro; undefine it so our
+// SyncOpType::DELETE enum value is not affected.
+#undef DELETE
 #else
 #include <sys/stat.h>
 #include <utime.h>
