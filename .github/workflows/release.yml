@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to simulate (e.g. v1.0.0-test)'
+        required: true
+        default: 'v1.0.0-test'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── macOS dependencies ──────────────────────────────────────────────
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install cmake sqlite openssl
+
+      # ── Linux dependencies ──────────────────────────────────────────────
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libsqlite3-dev libssl-dev rpm
+
+      # ── Windows dependencies (vcpkg) ────────────────────────────────────
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install sqlite3:x64-windows openssl:x64-windows
+          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
+
+      # ── Configure ───────────────────────────────────────────────────────
+      - name: Configure (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake -S . -B build `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows
+
+      # ── Build ────────────────────────────────────────────────────────────
+      - name: Build (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: cmake --build build
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: cmake --build build --config Release
+
+      # ── Package ──────────────────────────────────────────────────────────
+      - name: Package (macOS/Linux)
+        if: runner.os != 'Windows'
+        working-directory: build
+        run: cpack
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        working-directory: build
+        run: cpack -C Release
+
+      # ── Collect artifacts ─────────────────────────────────────────────
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.os }}
+          path: |
+            build/*.dmg
+            build/*.deb
+            build/*.rpm
+            build/*.exe
+          if-no-files-found: error
+
+  release:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Caravault ${{ github.ref_name }}
+          body: |
+            ## Caravault ${{ github.ref_name }}
+
+            ### Install
+
+            | Platform | File |
+            |----------|------|
+            | macOS    | `.dmg` — open and drag `caravault` to `/usr/local/bin` |
+            | Linux (Debian/Ubuntu) | `.deb` — `sudo dpkg -i caravault-*.deb` |
+            | Linux (Fedora/RHEL)   | `.rpm` — `sudo rpm -i caravault-*.rpm` |
+            | Windows  | `.exe` — run the installer, `caravault` is added to PATH |
+          files: artifacts/*
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
