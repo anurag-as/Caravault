@@ -213,10 +213,17 @@ set(CPACK_RESOURCE_FILE_README "${PROJECT_SOURCE_DIR}/README.md")
 set(CPACK_STRIP_FILES TRUE)
 
 if(APPLE)
-    # Produce a drag-and-drop .dmg
-    set(CPACK_GENERATOR "DragNDrop")
-    set(CPACK_DMG_VOLUME_NAME "Caravault ${PROJECT_VERSION}")
+    # Produce a TGZ archive containing just the binary for CLI distribution
+    set(CPACK_GENERATOR "TGZ")
     set(CPACK_PACKAGE_FILE_NAME "caravault-${PROJECT_VERSION}-macos")
+    # Only include the binary, not headers/libs
+    set(CPACK_INSTALL_CMAKE_PROJECTS "${CMAKE_BINARY_DIR};${PROJECT_NAME};ALL;/")
+    install(TARGETS caravault
+        RUNTIME DESTINATION .
+        COMPONENT Runtime
+    )
+    set(CPACK_COMPONENTS_ALL Runtime)
+    set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
 elseif(WIN32)
     # Produce an NSIS installer (.exe); requires NSIS to be installed on the build host
     set(CPACK_GENERATOR "NSIS")

@@ -83,7 +83,7 @@ jobs:
         with:
           name: package-${{ matrix.os }}
           path: |
-            build/*.dmg
+            build/*.tar.gz
             build/*.deb
             build/*.rpm
             build/*.exe
@@ -114,7 +114,7 @@ jobs:
 
             | Platform | File |
             |----------|------|
-            | macOS    | `.dmg` — open and drag `caravault` to `/usr/local/bin` |
+            | macOS    | `.tar.gz` — extract and move `caravault` to `/usr/local/bin` |
             | Linux (Debian/Ubuntu) | `.deb` — `sudo dpkg -i caravault-*.deb` |
             | Linux (Fedora/RHEL)   | `.rpm` — `sudo rpm -i caravault-*.rpm` |
             | Windows  | `.exe` — run the installer, `caravault` is added to PATH |

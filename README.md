@@ -15,9 +15,13 @@ Caravault is an offline multi-drive file synchronization system that enables fil
 
 ### macOS
 
-Download the latest `.dmg` from the [Releases](../../releases) page, open it, and drag `caravault` to a location on your `PATH` (e.g. `/usr/local/bin`).
+Download the latest `.tar.gz` from the [Releases](../../releases) page, extract it, and move the binary to your `PATH`:
 
-Or install the dependencies and build from source (see [Building](#building)).
+```bash
+tar -xzf caravault-<version>-macos.tar.gz
+sudo mv caravault /usr/local/bin/
+caravault --help
+```
 
 ### Linux
 
