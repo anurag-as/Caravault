@@ -24,9 +24,21 @@ std::vector<ConflictInfo> ConflictResolver::detect_conflicts(
         bool has_concurrent = false;
         for (auto it = versions.begin(); it != versions.end() && !has_concurrent; ++it) {
             for (auto jt = std::next(it); jt != versions.end() && !has_concurrent; ++jt) {
-                if (it->second.version_vector.compare(jt->second.version_vector) ==
-                    VersionVector::Ordering::CONCURRENT)
+                auto ord = it->second.version_vector.compare(jt->second.version_vector);
+                if (ord == VersionVector::Ordering::CONCURRENT) {
                     has_concurrent = true;
+                } else if (ord != VersionVector::Ordering::EQUAL) {
+                    // A causally-ordered pair is still a conflict when the dominant
+                    // version is live but the dominated version is a tombstone: the
+                    // live edit happened after the deletion, so the user's intent is
+                    // ambiguous and requires resolution.
+                    const FileMetadata& dominant =
+                        (ord == VersionVector::Ordering::DOMINATES) ? it->second : jt->second;
+                    const FileMetadata& dominated =
+                        (ord == VersionVector::Ordering::DOMINATES) ? jt->second : it->second;
+                    if (!dominant.tombstone && dominated.tombstone)
+                        has_concurrent = true;
+                }
             }
         }
         if (!has_concurrent)
@@ -40,7 +52,6 @@ std::vector<ConflictInfo> ConflictResolver::detect_conflicts(
 Resolution ConflictResolver::resolve(const ConflictInfo& conflict, size_t total_drives) {
     const auto& versions = conflict.versions;
 
-    // 1. DOMINANT_VERSION: one version vector dominates all others
     for (const auto& [candidate_id, candidate_meta] : versions) {
         bool dominates_all = true;
         for (const auto& [other_id, other_meta] : versions) {
@@ -59,7 +70,6 @@ Resolution ConflictResolver::resolve(const ConflictInfo& conflict, size_t total_
                     {"Selected dominant version from drive " + candidate_id}};
     }
 
-    // 2. MAJORITY_QUORUM: >50% of all registered drives share the same hash
     if (total_drives > 0) {
         std::map<std::string, std::vector<std::string>> hash_to_drives;
         for (const auto& [drive_id, meta] : versions) {
@@ -80,7 +90,6 @@ Resolution ConflictResolver::resolve(const ConflictInfo& conflict, size_t total_
         }
     }
 
-    // 3. TOMBSTONE_WINS: any version is a tombstone
     for (const auto& [drive_id, meta] : versions) {
         if (meta.tombstone)
             return {drive_id,
@@ -88,7 +97,6 @@ Resolution ConflictResolver::resolve(const ConflictInfo& conflict, size_t total_
                     {"Tombstone from drive " + drive_id + " wins for " + conflict.path}};
     }
 
-    // 4. LAST_WRITE_WINS: highest mtime
     std::string best_drive;
     uint64_t best_mtime = 0;
     for (const auto& [drive_id, meta] : versions) {
@@ -102,9 +110,9 @@ Resolution ConflictResolver::resolve(const ConflictInfo& conflict, size_t total_
                 ResolutionStrategy::LAST_WRITE_WINS,
                 {"Last-write-wins: drive " + best_drive + " mtime=" + std::to_string(best_mtime)}};
 
-    // 5. COPY_ALL_VERSIONS: fallback
-    return {
-        "", ResolutionStrategy::COPY_ALL_VERSIONS, {"Preserving all versions of " + conflict.path}};
+    return {"",
+            ResolutionStrategy::COPY_ALL_VERSIONS,
+            {"Preserving all versions of " + conflict.path}};
 }
 
 }  // namespace caravault

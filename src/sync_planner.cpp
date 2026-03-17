@@ -254,6 +254,45 @@ std::vector<SyncOp> SyncPlanner::plan_sync(
     }
 
     for (const auto& path : all_paths) {
+        // If >50% of all registered drives have tombstone=true for this file,
+        // propagate DELETE to all drives that still have the file as live.
+        if (!all_drive_ids.empty()) {
+            size_t tombstone_count = 0;
+            std::string tombstone_src;
+            VersionVector tombstone_vv;
+            for (const auto& [drive_id, fidx] : file_index) {
+                auto fit = fidx.find(path);
+                if (fit != fidx.end() && fit->second.tombstone) {
+                    ++tombstone_count;
+                    if (tombstone_src.empty()) {
+                        tombstone_src = drive_id;
+                        tombstone_vv = fit->second.version_vector;
+                    } else {
+                        tombstone_vv.merge(fit->second.version_vector);
+                    }
+                }
+            }
+            if (tombstone_count * 2 > all_drive_ids.size()) {
+                // Quorum of tombstones: propagate deletion to all live drives.
+                for (const auto& tgt_drive : all_drive_ids) {
+                    if (rename_handled.count({tgt_drive, path}))
+                        continue;
+                    auto& tgt_fidx = file_index[tgt_drive];
+                    auto tgt_it = tgt_fidx.find(path);
+                    if (tgt_it != tgt_fidx.end() && !tgt_it->second.tombstone) {
+                        SyncOp op;
+                        op.type = SyncOpType::DELETE;
+                        op.source_drive_id = tombstone_src;
+                        op.target_drive_id = tgt_drive;
+                        op.path = path;
+                        op.new_version_vector = tombstone_vv;
+                        ops.push_back(std::move(op));
+                    }
+                }
+                continue;  // Skip normal per-file planning for this path.
+            }
+        }
+
         // Prefer a conflict resolution winner; otherwise pick the dominant version.
         std::string src_drive;
         FileMetadata src_meta;

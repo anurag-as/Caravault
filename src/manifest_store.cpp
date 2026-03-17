@@ -3,6 +3,7 @@
 #include <chrono>
 #include <stdexcept>
 #include <string>
+#include <thread>
 
 namespace caravault {
 
@@ -17,7 +18,7 @@ int64_t current_unix_time() {
 bool FileMetadata::operator==(const FileMetadata& other) const {
     return path == other.path && hash == other.hash && size == other.size && mtime == other.mtime &&
            version_vector == other.version_vector && tombstone == other.tombstone &&
-           inode == other.inode;
+           corrupted == other.corrupted && inode == other.inode;
 }
 
 ManifestStore::~ManifestStore() {
@@ -84,6 +85,7 @@ void ManifestStore::create_schema() {
             mtime          INTEGER NOT NULL,
             version_vector TEXT    NOT NULL,
             tombstone      INTEGER NOT NULL DEFAULT 0,
+            corrupted      INTEGER NOT NULL DEFAULT 0,
             inode          INTEGER
         )
     )sql");
@@ -179,14 +181,15 @@ void ManifestStore::update_last_seen(const std::string& drive_id) {
 
 void ManifestStore::upsert_file(const FileMetadata& m) {
     const char* sql =
-        "INSERT INTO files(path, hash, size, mtime, version_vector, tombstone, inode)"
-        " VALUES(?,?,?,?,?,?,?)"
+        "INSERT INTO files(path, hash, size, mtime, version_vector, tombstone, corrupted, inode)"
+        " VALUES(?,?,?,?,?,?,?,?)"
         " ON CONFLICT(path) DO UPDATE SET"
         "  hash=excluded.hash,"
         "  size=excluded.size,"
         "  mtime=excluded.mtime,"
         "  version_vector=excluded.version_vector,"
         "  tombstone=excluded.tombstone,"
+        "  corrupted=excluded.corrupted,"
         "  inode=excluded.inode";
 
     sqlite3_stmt* stmt = nullptr;
@@ -202,10 +205,11 @@ void ManifestStore::upsert_file(const FileMetadata& m) {
     sqlite3_bind_int64(stmt, 4, static_cast<int64_t>(m.mtime));
     sqlite3_bind_text(stmt, 5, vv_json.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(stmt, 6, m.tombstone ? 1 : 0);
+    sqlite3_bind_int(stmt, 7, m.corrupted ? 1 : 0);
     if (m.inode.has_value()) {
-        sqlite3_bind_int64(stmt, 7, static_cast<int64_t>(*m.inode));
+        sqlite3_bind_int64(stmt, 8, static_cast<int64_t>(*m.inode));
     } else {
-        sqlite3_bind_null(stmt, 7);
+        sqlite3_bind_null(stmt, 8);
     }
 
     int rc = sqlite3_step(stmt);
@@ -228,15 +232,16 @@ static FileMetadata row_to_file_metadata(sqlite3_stmt* stmt) {
     m.mtime = static_cast<uint64_t>(sqlite3_column_int64(stmt, 3));
     m.version_vector = VersionVector::from_json(col_text(4));
     m.tombstone = sqlite3_column_int(stmt, 5) != 0;
-    if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
-        m.inode = static_cast<uint64_t>(sqlite3_column_int64(stmt, 6));
+    m.corrupted = sqlite3_column_int(stmt, 6) != 0;
+    if (sqlite3_column_type(stmt, 7) != SQLITE_NULL) {
+        m.inode = static_cast<uint64_t>(sqlite3_column_int64(stmt, 7));
     }
     return m;
 }
 
 std::optional<FileMetadata> ManifestStore::get_file(const std::string& path) {
     const char* sql =
-        "SELECT path, hash, size, mtime, version_vector, tombstone, inode"
+        "SELECT path, hash, size, mtime, version_vector, tombstone, corrupted, inode"
         " FROM files WHERE path=?";
 
     sqlite3_stmt* stmt = nullptr;
@@ -255,7 +260,8 @@ std::optional<FileMetadata> ManifestStore::get_file(const std::string& path) {
 }
 
 std::vector<FileMetadata> ManifestStore::get_all_files() {
-    const char* sql = "SELECT path, hash, size, mtime, version_vector, tombstone, inode FROM files";
+    const char* sql =
+        "SELECT path, hash, size, mtime, version_vector, tombstone, corrupted, inode FROM files";
 
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -268,6 +274,25 @@ std::vector<FileMetadata> ManifestStore::get_all_files() {
     }
     sqlite3_finalize(stmt);
     return files;
+}
+
+void ManifestStore::mark_deleted(const std::string& path, const std::string& drive_id) {
+    // Retrieve existing metadata or create a minimal tombstone entry.
+    FileMetadata m;
+    auto existing = get_file(path);
+    if (existing.has_value()) {
+        m = *existing;
+    } else {
+        m.path = path;
+        m.hash = "";
+        m.size = 0;
+        m.mtime = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+                                            std::chrono::system_clock::now().time_since_epoch())
+                                            .count());
+    }
+    m.tombstone = true;
+    m.version_vector.increment(drive_id);
+    upsert_file(m);
 }
 
 void ManifestStore::delete_file(const std::string& path) {
@@ -405,6 +430,45 @@ void ManifestStore::exec(const std::string& sql) {
             sqlite3_free(errmsg);
         }
         throw std::runtime_error(msg);
+    }
+}
+
+void ManifestStore::exec_with_retry(const std::string& sql, int max_retries, int initial_delay_ms) {
+    int delay_ms = initial_delay_ms;
+    for (int attempt = 0; attempt <= max_retries; ++attempt) {
+        char* errmsg = nullptr;
+        int rc = sqlite3_exec(db_, sql.c_str(), nullptr, nullptr, &errmsg);
+        if (rc == SQLITE_OK)
+            return;
+
+        std::string msg = errmsg ? errmsg : "unknown error";
+        if (errmsg)
+            sqlite3_free(errmsg);
+
+        if ((rc == SQLITE_BUSY || rc == SQLITE_LOCKED) && attempt < max_retries) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
+            delay_ms *= 2;
+            continue;
+        }
+
+        throw std::runtime_error("SQL error after " + std::to_string(attempt + 1) +
+                                 " attempt(s): " + msg);
+    }
+}
+
+bool ManifestStore::rebuild_from_filesystem(const fs::path& db_path) {
+    close();
+
+    std::error_code ec;
+    fs::remove(db_path, ec);
+    fs::remove(fs::path(db_path.string() + "-wal"), ec);
+    fs::remove(fs::path(db_path.string() + "-shm"), ec);
+
+    try {
+        *this = ManifestStore::open(db_path);
+        return true;
+    } catch (...) {
+        return false;
     }
 }
 

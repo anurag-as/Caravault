@@ -22,6 +22,15 @@ struct MerkleNode {
 };
 
 /**
+ * A scan error recorded when a file or directory cannot be processed.
+ * The scan continues with remaining entries.
+ */
+struct ScanError {
+    std::string path;    // Relative path of the problematic entry
+    std::string reason;  // Human-readable error description
+};
+
+/**
  * MerkleEngine builds and diffs Merkle trees over a filesystem directory,
  * using ManifestStore for hash caching.
  */
@@ -48,8 +57,19 @@ public:
      * Uses ManifestStore to cache file hashes: if a file's stored mtime and
      * size match the on-disk values the cached hash is reused without
      * recomputation. Computed hashes are written back to the store.
+     *
+     * Any file that cannot be read (permission error, I/O error) is skipped
+     * and the scan continues with remaining files.
      */
     static MerkleNode build_tree(const fs::path& root_path, ManifestStore& store);
+
+    /**
+     * Overload that collects per-file scan errors instead of silently skipping.
+     * Errors are appended to `errors`; the returned tree omits failed entries.
+     */
+    static MerkleNode build_tree(const fs::path& root_path,
+                                 ManifestStore& store,
+                                 std::vector<ScanError>& errors);
 
     /**
      * Files that differ between two trees.
@@ -70,7 +90,8 @@ public:
 private:
     static MerkleNode build_node(const fs::path& root_path,
                                  const fs::path& current_path,
-                                 ManifestStore& store);
+                                 ManifestStore& store,
+                                 std::vector<ScanError>* errors);
 
     static void collect_leaves(const MerkleNode& node, std::vector<std::string>& out);
 };

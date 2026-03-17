@@ -102,60 +102,114 @@ std::string MerkleEngine::compute_directory_hash(const std::vector<std::string>&
 
 MerkleNode MerkleEngine::build_node(const fs::path& root_path,
                                     const fs::path& current_path,
-                                    ManifestStore& store) {
+                                    ManifestStore& store,
+                                    std::vector<ScanError>* errors) {
     MerkleNode node;
-    node.path = fs::relative(current_path, root_path).generic_string();
+    std::error_code ec;
+    node.path = fs::relative(current_path, root_path, ec).generic_string();
+    if (ec)
+        node.path = current_path.generic_string();
 
-    if (fs::is_regular_file(current_path)) {
+    if (fs::is_regular_file(current_path, ec) && !ec) {
         node.level = 0;
 
-        auto cached_meta = store.get_file(node.path);
-        if (cached_meta.has_value()) {
-            auto file_size = fs::file_size(current_path);
-            auto mtime =
-                static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
-                                          fs::last_write_time(current_path).time_since_epoch())
-                                          .count());
-
-            if (cached_meta->size == file_size && cached_meta->mtime == mtime) {
-                auto cached_hash = store.get_merkle_hash(node.path, 0);
-                if (cached_hash.has_value()) {
-                    node.hash = *cached_hash;
-                    return node;
-                }
-            }
+        auto file_size = fs::file_size(current_path, ec);
+        if (ec) {
+            if (errors)
+                errors->push_back({node.path, "file_size: " + ec.message()});
+            node.hash = "";
+            return node;
         }
 
-        node.hash = compute_file_hash(current_path);
-        store.upsert_merkle_node(node.path, node.hash, 0);
+        auto mtime_tp = fs::last_write_time(current_path, ec);
+        if (ec) {
+            if (errors)
+                errors->push_back({node.path, "last_write_time: " + ec.message()});
+            node.hash = "";
+            return node;
+        }
+        auto mtime = static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::seconds>(mtime_tp.time_since_epoch()).count());
 
-    } else if (fs::is_directory(current_path)) {
+        auto cached = store.get_file(node.path);
+        if (cached.has_value() && !cached->hash.empty() && cached->size == file_size &&
+            cached->mtime == mtime) {
+            node.hash = cached->hash;
+            return node;
+        }
+
+        try {
+            node.hash = compute_file_hash(current_path);
+        } catch (const std::exception& e) {
+            if (errors)
+                errors->push_back({node.path, std::string("hash: ") + e.what()});
+            node.hash = "";
+            return node;
+        }
+
+        try {
+            store.upsert_merkle_node(node.path, node.hash, 0);
+            FileMetadata meta = cached.value_or(FileMetadata{});
+            meta.path = node.path;
+            meta.hash = node.hash;
+            meta.size = file_size;
+            meta.mtime = mtime;
+            store.upsert_file(meta);
+        } catch (const std::exception& e) {
+            if (errors)
+                errors->push_back({node.path, std::string("db_write: ") + e.what()});
+        }
+
+    } else if (fs::is_directory(current_path, ec) && !ec) {
         node.level = 1;
 
         std::vector<fs::path> entries;
-        for (const auto& entry : fs::directory_iterator(current_path)) {
-            entries.push_back(entry.path());
+        try {
+            for (const auto& entry : fs::directory_iterator(current_path)) {
+                entries.push_back(entry.path());
+            }
+        } catch (const std::exception& e) {
+            if (errors)
+                errors->push_back({node.path, std::string("dir_iter: ") + e.what()});
+            node.hash = compute_directory_hash({});
+            return node;
         }
         std::sort(entries.begin(), entries.end());
 
         std::vector<std::string> child_hashes;
         for (const auto& entry : entries) {
-            if (fs::is_regular_file(entry) || fs::is_directory(entry)) {
-                MerkleNode child = build_node(root_path, entry, store);
-                child_hashes.push_back(child.hash);
-                node.children.push_back(std::move(child));
+            std::error_code entry_ec;
+            bool is_file = fs::is_regular_file(entry, entry_ec);
+            bool is_dir = !entry_ec && !is_file && fs::is_directory(entry, entry_ec);
+            if (!entry_ec && (is_file || is_dir)) {
+                MerkleNode child = build_node(root_path, entry, store, errors);
+                if (!child.hash.empty()) {
+                    child_hashes.push_back(child.hash);
+                    node.children.push_back(std::move(child));
+                }
             }
         }
 
         node.hash = compute_directory_hash(child_hashes);
-        store.upsert_merkle_node(node.path, node.hash, 1);
+        try {
+            store.upsert_merkle_node(node.path, node.hash, 1);
+        } catch (const std::exception& e) {
+            if (errors)
+                errors->push_back({node.path, std::string("db_write: ") + e.what()});
+        }
     }
 
     return node;
 }
 
 MerkleNode MerkleEngine::build_tree(const fs::path& root_path, ManifestStore& store) {
-    return build_node(root_path, root_path, store);
+    return build_node(root_path, root_path, store, nullptr);
+}
+
+MerkleNode MerkleEngine::build_tree(const fs::path& root_path,
+                                    ManifestStore& store,
+                                    std::vector<ScanError>& errors) {
+    return build_node(root_path, root_path, store, &errors);
 }
 
 void MerkleEngine::collect_leaves(const MerkleNode& node, std::vector<std::string>& out) {

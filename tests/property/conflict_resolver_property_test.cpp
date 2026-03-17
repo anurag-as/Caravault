@@ -1,5 +1,6 @@
 #include "conflict_resolver.hpp"
 #include "manifest_store.hpp"
+#include "sync_planner.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -251,4 +252,93 @@ RC_GTEST_PROP(ConflictResolverProperty, QuorumResolutionVersionVectorUpdate, ())
     RC_ASSERT(std::any_of(res.actions.begin(), res.actions.end(), [](const std::string& a) {
         return a.find("merged") != std::string::npos || a.find("Version") != std::string::npos;
     }));
+}
+
+// For any file, the tombstone flag SHALL be true if and only if the file was intentionally
+// deleted by the user (not missing due to errors).
+RC_GTEST_PROP(ConflictResolverProperty, TombstoneDistinguishesIntentionalDeletion, ()) {
+    auto path = *gen_nonempty_string();
+    auto drive_id = *gen_nonempty_string();
+
+    TempStore ts;
+
+    // Insert a live file first.
+    VersionVector vv;
+    vv.increment(drive_id);
+    ts.store.upsert_file(make_meta(path, "hash_abc", 100, vv));
+
+    // Verify it is live (not tombstoned).
+    auto live = ts.store.get_file(path);
+    RC_ASSERT(live.has_value());
+    RC_ASSERT(!live->tombstone);
+
+    // Mark it as intentionally deleted.
+    ts.store.mark_deleted(path, drive_id);
+
+    // Tombstone entry must be present and have tombstone=true.
+    auto tombstoned = ts.store.get_file(path);
+    RC_ASSERT(tombstoned.has_value());
+    RC_ASSERT(tombstoned->tombstone);
+
+    // A file that was never inserted must return nullopt (absent != tombstoned).
+    auto never_inserted = ts.store.get_file(path + "_never_inserted");
+    RC_ASSERT(!never_inserted.has_value());
+}
+
+// For any file where >50% of all registered drives have tombstone=true, the sync planner
+// SHALL generate DELETE operations for all drives that still have the file as live.
+RC_GTEST_PROP(ConflictResolverProperty, QuorumDeletionPropagation, ()) {
+    // Use a fixed N to keep the test deterministic and fast.
+    // N=5: 3 drives have tombstone (>50%), 2 drives have the file live.
+    const size_t total_drives = 5;
+    const size_t tombstone_drives = 3;
+
+    auto path = *gen_nonempty_string();
+
+    std::vector<TempStore> stores(total_drives);
+    std::map<std::string, ManifestStore*> manifests;
+
+    for (size_t i = 0; i < total_drives; ++i) {
+        std::string drive_id = "drive_" + std::to_string(i);
+        stores[i].store.register_drive(drive_id);
+        manifests[drive_id] = &stores[i].store;
+    }
+
+    // First N tombstone_drives have tombstone=true.
+    for (size_t i = 0; i < tombstone_drives; ++i) {
+        std::string drive_id = "drive_" + std::to_string(i);
+        VersionVector vv;
+        vv.increment(drive_id);
+        stores[i].store.upsert_file(make_meta(path, "", 0, vv, /*tombstone=*/true));
+    }
+
+    // Remaining drives have the file live.
+    for (size_t i = tombstone_drives; i < total_drives; ++i) {
+        std::string drive_id = "drive_" + std::to_string(i);
+        VersionVector vv;
+        vv.increment(drive_id);
+        stores[i].store.upsert_file(make_meta(path, "live_hash", 100, vv, /*tombstone=*/false));
+    }
+
+    auto ops = SyncPlanner{}.plan_sync(manifests, {});
+
+    // Every live drive must receive a DELETE op for this path.
+    for (size_t i = tombstone_drives; i < total_drives; ++i) {
+        std::string drive_id = "drive_" + std::to_string(i);
+        bool has_delete = std::any_of(ops.begin(), ops.end(), [&](const SyncOp& op) {
+            return op.type == SyncOpType::DELETE && op.path == path &&
+                   op.target_drive_id == drive_id;
+        });
+        RC_ASSERT(has_delete);
+    }
+
+    // Drives that already have tombstone must NOT receive a DELETE op.
+    for (size_t i = 0; i < tombstone_drives; ++i) {
+        std::string drive_id = "drive_" + std::to_string(i);
+        bool has_delete = std::any_of(ops.begin(), ops.end(), [&](const SyncOp& op) {
+            return op.type == SyncOpType::DELETE && op.path == path &&
+                   op.target_drive_id == drive_id;
+        });
+        RC_ASSERT(!has_delete);
+    }
 }

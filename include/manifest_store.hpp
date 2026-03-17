@@ -24,6 +24,7 @@ struct FileMetadata {
     uint64_t mtime;                 // Modification time (Unix timestamp)
     VersionVector version_vector;   // Causality tracking
     bool tombstone = false;         // True if file deleted
+    bool corrupted = false;         // True if hash mismatch detected on read
     std::optional<uint64_t> inode;  // Inode number (for rename detection)
 
     bool operator==(const FileMetadata& other) const;
@@ -86,6 +87,16 @@ public:
     void delete_file(const std::string& path);
 
     /**
+     * Mark a file as intentionally deleted by setting tombstone=true and
+     * incrementing the version vector for the given drive_id.
+     * If the file does not exist in the manifest, a new tombstone entry is created.
+     *
+     * This distinguishes intentional user deletions (tombstone=true) from files
+     * that are simply absent from the manifest (get_file() returns nullopt).
+     */
+    void mark_deleted(const std::string& path, const std::string& drive_id);
+
+    /**
      * Insert or replace a Merkle node hash.
      * @param level  0 = leaf (file), >0 = directory depth
      */
@@ -99,6 +110,21 @@ public:
     uint64_t begin_operation(const std::string& operation, const std::string& path);
     void complete_operation(uint64_t id);
     std::vector<PendingOperation> get_incomplete_operations();
+
+    /**
+     * Attempt to rebuild the manifest database from the file system state.
+     * Used when database corruption is detected.
+     * Closes the current connection, deletes the corrupt database, reopens it,
+     * and re-creates the schema. Returns true on success.
+     */
+    bool rebuild_from_filesystem(const fs::path& db_path);
+
+    /**
+     * Execute a SQL statement with exponential backoff retry on SQLITE_BUSY/SQLITE_LOCKED.
+     * Retries up to max_retries times with doubling delay starting at initial_delay_ms.
+     * Throws std::runtime_error if all retries are exhausted.
+     */
+    void exec_with_retry(const std::string& sql, int max_retries = 5, int initial_delay_ms = 10);
 
 private:
     sqlite3* db_ = nullptr;
