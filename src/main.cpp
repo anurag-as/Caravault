@@ -9,6 +9,7 @@
 #include "version_vector.hpp"
 
 #include <CLI/CLI.hpp>
+#include <cctype>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
