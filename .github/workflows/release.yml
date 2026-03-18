@@ -94,8 +94,7 @@ jobs:
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
-        working-directory: build
-        run: cpack -C Release
+        run: cp build\Release\caravault.exe caravault-${{ github.ref_name }}-windows-x64.exe
 
       # ── Collect artifacts ─────────────────────────────────────────────
       - name: Upload artifacts
@@ -104,9 +103,9 @@ jobs:
           name: package-${{ matrix.os }}
           path: |
             caravault-*-macos
+            caravault-*-windows-x64.exe
             build/*.deb
             build/*.rpm
-            build/*.exe
           if-no-files-found: error
 
   release:
@@ -138,7 +137,7 @@ jobs:
             | macOS    | binary — `sudo mv caravault-*-macos /usr/local/bin/caravault && chmod +x /usr/local/bin/caravault` |
             | Linux (Debian/Ubuntu) | `.deb` — `sudo dpkg -i caravault-*.deb` |
             | Linux (Fedora/RHEL)   | `.rpm` — `sudo rpm -i caravault-*.rpm` |
-            | Windows  | `.exe` — run the installer, `caravault` is added to PATH |
+            | Windows  | `.exe` — add it to PATH |
           files: artifacts/*
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}

@@ -39,7 +39,12 @@ sudo dnf install ./caravault-<version>-linux-x86_64.rpm
 
 ### Windows
 
-Download the latest `caravault-<version>-windows-x64.exe` installer from the [Releases](../../releases) page, run it, and follow the prompts. The installer adds `caravault` to your `PATH` automatically.
+Download `caravault-<version>-windows-x64.exe` from the [Releases](../../releases) page and add it to your `PATH`
+
+```powershell
+# Then open a new terminal and run:
+caravault --help
+```
 
 ---
 
