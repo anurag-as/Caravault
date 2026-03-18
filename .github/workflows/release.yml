@@ -29,6 +29,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache CMake dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: cmake-deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: cmake-deps-${{ runner.os }}-
 
       # ── Linux dependencies ──────────────────────────────────────────────
       - name: Install dependencies (Linux)
@@ -38,6 +44,14 @@ jobs:
           sudo apt-get install -y cmake libsqlite3-dev libssl-dev rpm
 
       # ── Windows dependencies (vcpkg) ────────────────────────────────────
+      - name: Cache vcpkg packages (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: C:\vcpkg\installed
+          key: vcpkg-${{ runner.os }}-sqlite3-openssl
+          restore-keys: vcpkg-${{ runner.os }}-
+
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -71,10 +85,16 @@ jobs:
         run: cmake --build build --config Release
 
       # ── Package ──────────────────────────────────────────────────────────
-      - name: Package (macOS/Linux)
-        if: runner.os != 'Windows'
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: cp build/caravault caravault-${{ github.ref_name }}-macos
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
         working-directory: build
-        run: cpack
+        run: |
+          strip caravault
+          cpack
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -87,7 +107,7 @@ jobs:
         with:
           name: package-${{ matrix.os }}
           path: |
-            build/*.tar.gz
+            caravault-*-macos
             build/*.deb
             build/*.rpm
             build/*.exe
@@ -119,7 +139,7 @@ jobs:
 
             | Platform | File |
             |----------|------|
-            | macOS    | `.tar.gz` — extract and move `caravault` to `/usr/local/bin` |
+            | macOS    | binary — `sudo mv caravault-*-macos /usr/local/bin/caravault && chmod +x /usr/local/bin/caravault` |
             | Linux (Debian/Ubuntu) | `.deb` — `sudo dpkg -i caravault-*.deb` |
             | Linux (Fedora/RHEL)   | `.rpm` — `sudo rpm -i caravault-*.rpm` |
             | Windows  | `.exe` — run the installer, `caravault` is added to PATH |

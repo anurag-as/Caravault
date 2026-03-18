@@ -212,11 +212,7 @@ set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${PROJECT_SOURCE_DIR}/README.md")
 set(CPACK_STRIP_FILES TRUE)
 
-if(APPLE)
-    # TGZ archive with just the binary — standard for CLI tools on macOS
-    set(CPACK_GENERATOR "TGZ")
-    set(CPACK_PACKAGE_FILE_NAME "caravault-${PROJECT_VERSION}-macos")
-elseif(WIN32)
+if(WIN32)
     # NSIS installer — NSIS must be installed on the build host
     set(CPACK_GENERATOR "NSIS")
     set(CPACK_NSIS_DISPLAY_NAME "Caravault ${PROJECT_VERSION}")
