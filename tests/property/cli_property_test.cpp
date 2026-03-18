@@ -12,6 +12,15 @@
 #include <thread>
 #include <vector>
 
+#ifdef _WIN32
+#include <process.h>
+#define popen  _popen
+#define pclose _pclose
+#define getpid _getpid
+#else
+#include <unistd.h>
+#endif
+
 namespace fs = std::filesystem;
 
 namespace {
