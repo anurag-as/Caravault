@@ -124,7 +124,7 @@ std::vector<SyncOp> SyncPlanner::topological_sort(std::vector<SyncOp> ops) {
             auto it = path_index.find({op.target_drive_id, op.path});
             if (it != path_index.end())
                 for (size_t j : it->second)
-                    if (i != j && ops[j].type == SyncOpType::DELETE)
+                    if (i != j && ops[j].type == SyncOpType::REMOVE)
                         add_edge(i, j);
         }
     }
@@ -281,7 +281,7 @@ std::vector<SyncOp> SyncPlanner::plan_sync(
                     auto tgt_it = tgt_fidx.find(path);
                     if (tgt_it != tgt_fidx.end() && !tgt_it->second.tombstone) {
                         SyncOp op;
-                        op.type = SyncOpType::DELETE;
+                        op.type = SyncOpType::REMOVE;
                         op.source_drive_id = tombstone_src;
                         op.target_drive_id = tgt_drive;
                         op.path = path;
@@ -361,7 +361,7 @@ std::vector<SyncOp> SyncPlanner::plan_sync(
             if (src_meta.tombstone) {
                 if (tgt_it != tgt_fidx.end() && !tgt_it->second.tombstone) {
                     SyncOp op;
-                    op.type = SyncOpType::DELETE;
+                    op.type = SyncOpType::REMOVE;
                     op.source_drive_id = src_drive;
                     op.target_drive_id = tgt_drive;
                     op.path = path;

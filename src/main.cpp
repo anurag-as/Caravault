@@ -62,7 +62,7 @@ static std::string sync_op_type_str(SyncOpType t) {
             return "COPY";
         case SyncOpType::REPLACE:
             return "REPLACE";
-        case SyncOpType::DELETE:
+        case SyncOpType::REMOVE:
             return "DELETE";
         case SyncOpType::RENAME:
             return "RENAME";
@@ -480,7 +480,7 @@ static int do_sync(bool dry_run,
             switch (op.type) {
                 case SyncOpType::COPY:    ++n_copy;    break;
                 case SyncOpType::REPLACE: ++n_replace; break;
-                case SyncOpType::DELETE:  ++n_delete;  break;
+                case SyncOpType::REMOVE:  ++n_delete;  break;
                 case SyncOpType::RENAME:  ++n_rename;  break;
                 case SyncOpType::MKDIR:   ++n_mkdir;   break;
             }
@@ -530,7 +530,7 @@ static int do_sync(bool dry_run,
             switch (op.type) {
                 case SyncOpType::COPY:
                 case SyncOpType::REPLACE: ++files_copied; break;
-                case SyncOpType::DELETE:  ++files_deleted; break;
+                case SyncOpType::REMOVE:  ++files_deleted; break;
                 case SyncOpType::RENAME:  ++files_renamed; break;
                 default: break;
             }

@@ -15,7 +15,7 @@ namespace caravault {
 enum class SyncOpType {
     COPY,
     REPLACE,
-    DELETE,
+    REMOVE,
     RENAME,
     MKDIR,
 };

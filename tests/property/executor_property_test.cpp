@@ -240,7 +240,7 @@ RC_GTEST_PROP(ExecutorProperty, DeletionPropagation, ()) {
     vv_del.increment("drive_src");
 
     SyncOp op;
-    op.type = SyncOpType::DELETE;
+    op.type = SyncOpType::REMOVE;
     op.source_drive_id = "drive_src";
     op.target_drive_id = "drive_dst";
     op.path = filename;
@@ -574,7 +574,7 @@ RC_GTEST_PROP(ExecutorProperty, DeletionVersionVectorUpdate, ()) {
     vv_after.increment("drive_src");
 
     SyncOp op;
-    op.type = SyncOpType::DELETE;
+    op.type = SyncOpType::REMOVE;
     op.source_drive_id = "drive_src";
     op.target_drive_id = "drive_dst";
     op.path = filename;

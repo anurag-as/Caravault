@@ -112,7 +112,7 @@ RC_GTEST_PROP(SyncPlannerProperty, ChangeTypeDetection, ()) {
     ts_a.store.upsert_file(make_meta(filename, "", 300, vv_del, /*tombstone=*/true));
 
     auto ops3 = SyncPlanner{}.plan_sync(manifests, {});
-    RC_ASSERT(has_op_type(ops3, SyncOpType::DELETE, filename, "drive_b"));
+    RC_ASSERT(has_op_type(ops3, SyncOpType::REMOVE, filename, "drive_b"));
 }
 
 // For any file that is renamed (same content, different path), the system SHALL
@@ -153,7 +153,7 @@ RC_GTEST_PROP(SyncPlannerProperty, RenameDetectionByContentHash, ()) {
         return op.type == SyncOpType::RENAME && op.path == old_name && op.new_path == new_name &&
                op.target_drive_id == "drive_b";
     });
-    bool has_delete_old = has_op_type(ops, SyncOpType::DELETE, old_name, "drive_b");
+    bool has_delete_old = has_op_type(ops, SyncOpType::REMOVE, old_name, "drive_b");
     bool has_copy_new = has_op_type(ops, SyncOpType::COPY, new_name, "drive_b");
 
     RC_ASSERT(has_rename);

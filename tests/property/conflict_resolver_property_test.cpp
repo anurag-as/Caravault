@@ -326,7 +326,7 @@ RC_GTEST_PROP(ConflictResolverProperty, QuorumDeletionPropagation, ()) {
     for (size_t i = tombstone_drives; i < total_drives; ++i) {
         std::string drive_id = "drive_" + std::to_string(i);
         bool has_delete = std::any_of(ops.begin(), ops.end(), [&](const SyncOp& op) {
-            return op.type == SyncOpType::DELETE && op.path == path &&
+            return op.type == SyncOpType::REMOVE && op.path == path &&
                    op.target_drive_id == drive_id;
         });
         RC_ASSERT(has_delete);
@@ -336,7 +336,7 @@ RC_GTEST_PROP(ConflictResolverProperty, QuorumDeletionPropagation, ()) {
     for (size_t i = 0; i < tombstone_drives; ++i) {
         std::string drive_id = "drive_" + std::to_string(i);
         bool has_delete = std::any_of(ops.begin(), ops.end(), [&](const SyncOp& op) {
-            return op.type == SyncOpType::DELETE && op.path == path &&
+            return op.type == SyncOpType::REMOVE && op.path == path &&
                    op.target_drive_id == drive_id;
         });
         RC_ASSERT(!has_delete);

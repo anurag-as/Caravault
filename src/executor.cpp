@@ -10,9 +10,6 @@
 
 #ifdef _WIN32
 #include <windows.h>
-// <winnt.h> defines DELETE as a file-access macro; undefine it so our
-// SyncOpType::DELETE enum value is not affected.
-#undef DELETE
 #else
 #include <sys/stat.h>
 #include <utime.h>
@@ -333,7 +330,7 @@ Executor::ExecutionResult Executor::execute(const SyncOp& op,
                 break;
             }
 
-            case SyncOpType::DELETE: {
+            case SyncOpType::REMOVE: {
                 fs::path target_path = target_root / op.path;
                 uint64_t log_id = target_store->begin_operation("DELETE", target_path.string());
 
