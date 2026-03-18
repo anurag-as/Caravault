@@ -58,10 +58,6 @@ jobs:
           vcpkg install sqlite3:x64-windows openssl:x64-windows
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
 
-      - name: Install NSIS (Windows)
-        if: runner.os == 'Windows'
-        run: choco install nsis --no-progress -y
-
       # ── Configure ───────────────────────────────────────────────────────
       - name: Configure (macOS/Linux)
         if: runner.os != 'Windows'
