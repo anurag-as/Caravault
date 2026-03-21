@@ -96,6 +96,11 @@ public:
      */
     static Diff diff(const MerkleNode& tree1, const MerkleNode& tree2);
 
+    /**
+     * Collect all leaf (file) paths from a tree into out.
+     */
+    static void collect_leaves(const MerkleNode& node, std::vector<std::string>& out);
+
 private:
     static MerkleNode build_node(const fs::path& root_path,
                                  const fs::path& current_path,
@@ -103,8 +108,6 @@ private:
                                  std::vector<ScanError>* errors,
                                  ProgressReporter* reporter = nullptr,
                                  size_t* scanned_counter = nullptr);
-
-    static void collect_leaves(const MerkleNode& node, std::vector<std::string>& out);
 };
 
 }  // namespace caravault

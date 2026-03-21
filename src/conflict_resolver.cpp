@@ -110,9 +110,8 @@ Resolution ConflictResolver::resolve(const ConflictInfo& conflict, size_t total_
                 ResolutionStrategy::LAST_WRITE_WINS,
                 {"Last-write-wins: drive " + best_drive + " mtime=" + std::to_string(best_mtime)}};
 
-    return {"",
-            ResolutionStrategy::COPY_ALL_VERSIONS,
-            {"Preserving all versions of " + conflict.path}};
+    return {
+        "", ResolutionStrategy::COPY_ALL_VERSIONS, {"Preserving all versions of " + conflict.path}};
 }
 
 }  // namespace caravault

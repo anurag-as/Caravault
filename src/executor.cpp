@@ -53,7 +53,7 @@ size_t copy_file_contents(const fs::path& src, const fs::path& dst) {
 }
 
 constexpr size_t kLargeFileThreshold = 1024 * 1024;  // 1 MB
-constexpr size_t kCopyChunkSize = 64 * 1024;          // 64 KB
+constexpr size_t kCopyChunkSize = 64 * 1024;         // 64 KB
 
 // Copy src -> dst in 64 KB chunks, calling reporter->update_bytes() after each chunk.
 // Returns total bytes written.
@@ -111,6 +111,13 @@ bool Executor::is_drive_accessible(const fs::path& drive_root) {
 bool Executor::read_file_verified(const std::string& rel_path,
                                   const fs::path& abs_path,
                                   ManifestStore& store) {
+    // Skip the manifest database files — they are live SQLite files that change
+    // during normal operation and will always appear stale after a scan.
+    const fs::path rel(rel_path);
+    const std::string first = rel.begin() != rel.end() ? rel.begin()->string() : "";
+    if (first == ".caravault")
+        return true;
+
     auto meta = store.get_file(rel_path);
     if (!meta.has_value())
         return true;

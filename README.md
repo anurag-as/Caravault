@@ -90,6 +90,19 @@ cd build && cpack -C Release
 ctest --test-dir build --output-on-failure
 ```
 
+## Demo
+
+`demos/demo_caravault.sh` is a comprehensive end-to-end script that exercises every caravault command against three real drives. It covers scan, status, conflicts, sync (dry-run and live), verify, manual resolve, config, version vectors, majority quorum resolution, tombstone deletion propagation, incremental sync, Merkle diff stability, and a full three-way round-trip. Drives are cleaned up automatically at the end.
+
+```bash
+bash demos/demo_caravault.sh <drive_a> <drive_b> <drive_c>
+
+# Example:
+bash demos/demo_caravault.sh /Volumes/SIMMAX "/Volumes/SIMMAX 1" "/Volumes/SIMMAX 2"
+```
+
+A sample run log is in [`demos/demo.md`](demos/demo.md).
+
 ## Usage
 
 ```bash

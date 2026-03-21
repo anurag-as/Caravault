@@ -83,8 +83,7 @@ protected:
 #ifdef _WIN32
         temp_dir_ = fs::temp_directory_path() /
                     ("caravault_it_" +
-                     std::to_string(
-                         std::chrono::steady_clock::now().time_since_epoch().count()));
+                     std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
         fs::create_directories(temp_dir_);
 #else
         char* result = ::mkdtemp(buf.data());
@@ -196,7 +195,9 @@ TEST_F(IntegrationTestBase, QuorumResolvesConflict) {
     write_file(drive_a_root_ / "shared.txt", "Version A");
     store_a_.upsert_file(make_meta("shared.txt",
                                    MerkleEngine::compute_file_hash(drive_a_root_ / "shared.txt"),
-                                   9, 1700000001, VersionVector({{"drive_a", 1}})));
+                                   9,
+                                   1700000001,
+                                   VersionVector({{"drive_a", 1}})));
 
     write_file(drive_b_root_ / "shared.txt", "Version B");
     std::string hash_b = MerkleEngine::compute_file_hash(drive_b_root_ / "shared.txt");
@@ -218,8 +219,9 @@ TEST_F(IntegrationTestBase, QuorumResolvesConflict) {
     auto conflicts = resolver.detect_conflicts(manifests);
 
     ASSERT_FALSE(conflicts.empty()) << "Expected shared.txt to be detected as a conflict";
-    auto it = std::find_if(conflicts.begin(), conflicts.end(),
-                           [](const ConflictInfo& c) { return c.path == "shared.txt"; });
+    auto it = std::find_if(conflicts.begin(), conflicts.end(), [](const ConflictInfo& c) {
+        return c.path == "shared.txt";
+    });
     ASSERT_NE(it, conflicts.end()) << "shared.txt should be in the conflict list";
 
     Resolution res = resolver.resolve(*it, manifests.size());
@@ -234,11 +236,12 @@ TEST_F(IntegrationTestBase, QuorumResolvesConflict) {
 TEST_F(IntegrationTestBase, RecoverIncompleteOperationPromotesTempFile) {
     const std::string content = "Critical data";
     write_file(drive_a_root_ / "important.txt", content);
-    std::string expected_hash =
-        MerkleEngine::compute_file_hash(drive_a_root_ / "important.txt");
+    std::string expected_hash = MerkleEngine::compute_file_hash(drive_a_root_ / "important.txt");
 
-    store_b_.upsert_file(make_meta("important.txt", expected_hash,
-                                   static_cast<uint64_t>(content.size()), 1700000010,
+    store_b_.upsert_file(make_meta("important.txt",
+                                   expected_hash,
+                                   static_cast<uint64_t>(content.size()),
+                                   1700000010,
                                    VersionVector({{"drive_a", 1}})));
 
     // Simulate crash: log the operation but never complete it
@@ -262,7 +265,9 @@ TEST_F(IntegrationTestBase, RecoverDeletesCorruptedTempFile) {
     store_b_.upsert_file(
         make_meta("data.txt",
                   "0000000000000000000000000000000000000000000000000000000000000000",
-                  10, 1700000020, VersionVector({{"drive_a", 1}})));
+                  10,
+                  1700000020,
+                  VersionVector({{"drive_a", 1}})));
 
     store_b_.begin_operation("WRITE", (drive_b_root_ / "data.txt").string());
     write_file(drive_b_root_ / "data.txt.caravault.tmp", "CORRUPTED CONTENT THAT DOES NOT MATCH");
@@ -281,13 +286,14 @@ TEST_F(IntegrationTestBase, RenameOnOneDriveConflictWithModifyOnAnother) {
     write_file(drive_a_root_ / "original.txt", original_content);
     write_file(drive_b_root_ / "original.txt", original_content);
 
-    std::string original_hash =
-        MerkleEngine::compute_file_hash(drive_a_root_ / "original.txt");
+    std::string original_hash = MerkleEngine::compute_file_hash(drive_a_root_ / "original.txt");
     VersionVector shared_vv({{"drive_a", 1}, {"drive_b", 1}});
 
-    auto shared_meta = make_meta("original.txt", original_hash,
+    auto shared_meta = make_meta("original.txt",
+                                 original_hash,
                                  static_cast<uint64_t>(original_content.size()),
-                                 1700000030, shared_vv);
+                                 1700000030,
+                                 shared_vv);
     store_a_.upsert_file(shared_meta);
     store_b_.upsert_file(shared_meta);
 
@@ -295,18 +301,20 @@ TEST_F(IntegrationTestBase, RenameOnOneDriveConflictWithModifyOnAnother) {
     write_file(drive_a_root_ / "renamed.txt", original_content);
     fs::remove(drive_a_root_ / "original.txt");
     store_a_.mark_deleted("original.txt", "drive_a");
-    store_a_.upsert_file(make_meta("renamed.txt", original_hash,
+    store_a_.upsert_file(make_meta("renamed.txt",
+                                   original_hash,
                                    static_cast<uint64_t>(original_content.size()),
-                                   1700000031, VersionVector({{"drive_a", 2}})));
+                                   1700000031,
+                                   VersionVector({{"drive_a", 2}})));
 
     // drive_b: modify original.txt
     const std::string modified_content = "Modified content";
     write_file(drive_b_root_ / "original.txt", modified_content);
-    store_b_.upsert_file(
-        make_meta("original.txt",
-                  MerkleEngine::compute_file_hash(drive_b_root_ / "original.txt"),
-                  static_cast<uint64_t>(modified_content.size()), 1700000032,
-                  VersionVector({{"drive_b", 2}})));
+    store_b_.upsert_file(make_meta("original.txt",
+                                   MerkleEngine::compute_file_hash(drive_b_root_ / "original.txt"),
+                                   static_cast<uint64_t>(modified_content.size()),
+                                   1700000032,
+                                   VersionVector({{"drive_b", 2}})));
 
     std::map<std::string, ManifestStore*> manifests = {
         {"drive_a", &store_a_},
@@ -318,10 +326,10 @@ TEST_F(IntegrationTestBase, RenameOnOneDriveConflictWithModifyOnAnother) {
     };
 
     auto conflicts = ConflictResolver{}.detect_conflicts(manifests);
-    bool original_conflict_found = std::any_of(conflicts.begin(), conflicts.end(),
-                                               [](const ConflictInfo& c) {
-                                                   return c.path == "original.txt";
-                                               });
+    bool original_conflict_found =
+        std::any_of(conflicts.begin(), conflicts.end(), [](const ConflictInfo& c) {
+            return c.path == "original.txt";
+        });
     EXPECT_TRUE(original_conflict_found) << "original.txt should be detected as a conflict";
 
     std::vector<Resolution> resolutions;
@@ -397,7 +405,9 @@ TEST_F(IntegrationTestBase, CrossPlatformPathNormalizationAndPermissions) {
     store_a_.upsert_file(
         make_meta(normalize_path("subdir/file.txt"),
                   MerkleEngine::compute_file_hash(drive_a_root_ / "subdir" / "file.txt"),
-                  5, 1700000040, VersionVector({{"drive_a", 1}})));
+                  5,
+                  1700000040,
+                  VersionVector({{"drive_a", 1}})));
 
     auto retrieved = store_a_.get_file("subdir/file.txt");
     ASSERT_TRUE(retrieved.has_value());
@@ -439,10 +449,11 @@ TEST_F(IntegrationTestBase, CrossPlatformPathNormalizationAndPermissions) {
     store_a_.upsert_file(
         make_meta(mixed_path,
                   "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-                  100, 1700000050, VersionVector({{"drive_a", 1}})));
+                  100,
+                  1700000050,
+                  VersionVector({{"drive_a", 1}})));
 
     auto retrieved2 = store_a_.get_file(mixed_path);
-    ASSERT_TRUE(retrieved2.has_value())
-        << "Should be able to retrieve file by normalized path";
+    ASSERT_TRUE(retrieved2.has_value()) << "Should be able to retrieve file by normalized path";
     EXPECT_EQ(retrieved2->path, mixed_path);
 }

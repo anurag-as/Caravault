@@ -14,7 +14,7 @@
 
 #ifdef _WIN32
 #include <process.h>
-#define popen  _popen
+#define popen _popen
 #define pclose _pclose
 #define getpid _getpid
 #else

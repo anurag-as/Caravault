@@ -73,8 +73,7 @@ FileMetadata make_meta(const std::string& path,
 
 rc::Gen<std::string> gen_nonempty_string() {
     return rc::gen::map(rc::gen::string<std::string>(), [](std::string s) {
-        s.erase(std::remove_if(s.begin(), s.end(),
-                               [](char c) { return c == '\n' || c == '\r'; }),
+        s.erase(std::remove_if(s.begin(), s.end(), [](char c) { return c == '\n' || c == '\r'; }),
                 s.end());
         return s.empty() ? std::string("x") : s;
     });
@@ -131,9 +130,11 @@ RC_GTEST_PROP(LoggerProperty, QuorumResolutionLogging, ()) {
 // For any sync operation, the log SHALL record the operation type, path,
 // source drive, and target drive.
 RC_GTEST_PROP(LoggerProperty, SynchronizationOperationLogging, ()) {
-    auto operation =
-        *rc::gen::element(std::string("COPY"), std::string("REPLACE"), std::string("DELETE"),
-                          std::string("RENAME"), std::string("MKDIR"));
+    auto operation = *rc::gen::element(std::string("COPY"),
+                                       std::string("REPLACE"),
+                                       std::string("DELETE"),
+                                       std::string("RENAME"),
+                                       std::string("MKDIR"));
     auto path = *gen_nonempty_string();
     auto src =
         *rc::gen::map(rc::gen::inRange(0, 100), [](int n) { return "drive_" + std::to_string(n); });

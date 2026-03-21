@@ -25,8 +25,8 @@ namespace {
 std::atomic<int> g_counter{0};
 
 fs::path make_temp_dir() {
-    fs::path p = fs::temp_directory_path() /
-                 ("caravault_idem_" + std::to_string(g_counter.fetch_add(1)));
+    fs::path p =
+        fs::temp_directory_path() / ("caravault_idem_" + std::to_string(g_counter.fetch_add(1)));
     fs::create_directories(p);
     return p;
 }
@@ -89,8 +89,8 @@ size_t count_file_ops(std::map<std::string, ManifestStore*>& manifests) {
         resolutions.push_back(ConflictResolver{}.resolve(c, manifests.size()));
 
     auto ops = SyncPlanner{}.plan_sync(manifests, resolutions);
-    return std::count_if(ops.begin(), ops.end(),
-                         [](const SyncOp& op) { return op.type != SyncOpType::MKDIR; });
+    return std::count_if(
+        ops.begin(), ops.end(), [](const SyncOp& op) { return op.type != SyncOpType::MKDIR; });
 }
 
 // Verify that every drive's manifest agrees on the hash for every live path.
@@ -149,20 +149,19 @@ rc::Gen<FileMod> gen_file_mod(const std::vector<std::string>& existing_files) {
         return rc::gen::map(rc::gen::pair(gen_filename(), gen_content()),
                             [](auto p) -> FileMod { return {ModOp::ADD, p.first, p.second}; });
     }
-    return rc::gen::map(
-        rc::gen::tuple(rc::gen::inRange<int>(0, 3),
-                       gen_filename(),
-                       gen_content(),
-                       rc::gen::inRange<size_t>(0, existing_files.size())),
-        [existing_files](auto t) -> FileMod {
-            int op_idx = std::get<0>(t);
-            const std::string& existing = existing_files[std::get<3>(t)];
-            if (op_idx == 0)
-                return {ModOp::ADD, std::get<1>(t), std::get<2>(t)};
-            if (op_idx == 1)
-                return {ModOp::MODIFY, existing, std::get<2>(t)};
-            return {ModOp::DELETE, existing, ""};
-        });
+    return rc::gen::map(rc::gen::tuple(rc::gen::inRange<int>(0, 3),
+                                       gen_filename(),
+                                       gen_content(),
+                                       rc::gen::inRange<size_t>(0, existing_files.size())),
+                        [existing_files](auto t) -> FileMod {
+                            int op_idx = std::get<0>(t);
+                            const std::string& existing = existing_files[std::get<3>(t)];
+                            if (op_idx == 0)
+                                return {ModOp::ADD, std::get<1>(t), std::get<2>(t)};
+                            if (op_idx == 1)
+                                return {ModOp::MODIFY, existing, std::get<2>(t)};
+                            return {ModOp::DELETE, existing, ""};
+                        });
 }
 
 }  // namespace
@@ -245,8 +244,8 @@ RC_GTEST_PROP(IdempotenceProperty, SynchronizationIdempotence, ()) {
         } else {
             // DELETE
             fs::remove(mod_drive.root / mod.filename);
-            live_files.erase(
-                std::remove(live_files.begin(), live_files.end(), mod.filename), live_files.end());
+            live_files.erase(std::remove(live_files.begin(), live_files.end(), mod.filename),
+                             live_files.end());
         }
     }
 

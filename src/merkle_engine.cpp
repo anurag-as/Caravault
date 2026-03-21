@@ -1,4 +1,5 @@
 #include "merkle_engine.hpp"
+
 #include "progress_reporter.hpp"
 
 #include <algorithm>
@@ -14,6 +15,11 @@
 namespace caravault {
 
 namespace {
+
+bool should_skip(const fs::path& p) {
+    const std::string name = p.filename().string();
+    return !name.empty() && name[0] == '.';
+}
 
 std::string hex_encode(const unsigned char* data, unsigned int len) {
     std::ostringstream oss;
@@ -113,6 +119,10 @@ MerkleNode MerkleEngine::build_node(const fs::path& root_path,
     if (ec)
         node.path = current_path.generic_string();
 
+    // Skip hidden files/dirs and the .caravault metadata directory.
+    if (should_skip(current_path))
+        return node;
+
     if (fs::is_regular_file(current_path, ec) && !ec) {
         node.level = 0;
 
@@ -138,6 +148,12 @@ MerkleNode MerkleEngine::build_node(const fs::path& root_path,
         if (cached.has_value() && !cached->hash.empty() && cached->size == file_size &&
             cached->mtime == mtime) {
             node.hash = cached->hash;
+            // Clear tombstone if the file has reappeared on disk.
+            if (cached->tombstone) {
+                FileMetadata revived = *cached;
+                revived.tombstone = false;
+                store.upsert_file(revived);
+            }
             // Report progress even for cached files.
             if (reporter && scanned_counter)
                 reporter->update(++(*scanned_counter), "Scanning: " + node.path);
@@ -160,6 +176,7 @@ MerkleNode MerkleEngine::build_node(const fs::path& root_path,
             meta.hash = node.hash;
             meta.size = file_size;
             meta.mtime = mtime;
+            meta.tombstone = false;  // file exists on disk — clear any prior tombstone
             store.upsert_file(meta);
         } catch (const std::exception& e) {
             if (errors)

@@ -17,6 +17,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -184,6 +185,19 @@ static int do_scan(const std::vector<std::string>& drive_paths, bool scan_all, c
 
             for (const auto& err : errors)
                 std::cerr << "  Warning: " << err.path << ": " << err.reason << "\n";
+
+            // Tombstone any manifest entries whose files no longer exist on disk.
+            {
+                std::vector<std::string> visited;
+                MerkleEngine::collect_leaves(tree, visited);
+                std::unordered_set<std::string> visited_set(visited.begin(), visited.end());
+                for (const auto& f : store.get_all_files()) {
+                    if (!f.tombstone && visited_set.find(f.path) == visited_set.end()) {
+                        store.mark_deleted(f.path, drive_id);
+                        std::cout << "  Tombstoned (removed from disk): " << f.path << "\n";
+                    }
+                }
+            }
 
             std::cout << "  Root hash: " << tree.hash << "\n";
             std::cout << "  Scan complete.\n";
@@ -478,11 +492,21 @@ static int do_sync(bool dry_run,
             std::cout << "  " << sync_op_type_str(op.type) << " " << op.path << " ("
                       << op.source_drive_id << " -> " << op.target_drive_id << ")\n";
             switch (op.type) {
-                case SyncOpType::COPY:    ++n_copy;    break;
-                case SyncOpType::REPLACE: ++n_replace; break;
-                case SyncOpType::REMOVE:  ++n_delete;  break;
-                case SyncOpType::RENAME:  ++n_rename;  break;
-                case SyncOpType::MKDIR:   ++n_mkdir;   break;
+                case SyncOpType::COPY:
+                    ++n_copy;
+                    break;
+                case SyncOpType::REPLACE:
+                    ++n_replace;
+                    break;
+                case SyncOpType::REMOVE:
+                    ++n_delete;
+                    break;
+                case SyncOpType::RENAME:
+                    ++n_rename;
+                    break;
+                case SyncOpType::MKDIR:
+                    ++n_mkdir;
+                    break;
             }
         }
 
@@ -529,10 +553,17 @@ static int do_sync(bool dry_run,
         if (result.success) {
             switch (op.type) {
                 case SyncOpType::COPY:
-                case SyncOpType::REPLACE: ++files_copied; break;
-                case SyncOpType::REMOVE:  ++files_deleted; break;
-                case SyncOpType::RENAME:  ++files_renamed; break;
-                default: break;
+                case SyncOpType::REPLACE:
+                    ++files_copied;
+                    break;
+                case SyncOpType::REMOVE:
+                    ++files_deleted;
+                    break;
+                case SyncOpType::RENAME:
+                    ++files_renamed;
+                    break;
+                default:
+                    break;
             }
             if (verbose)
                 std::cout << "  [" << done << "/" << ops.size() << "] " << sync_op_type_str(op.type)
@@ -552,8 +583,7 @@ static int do_sync(bool dry_run,
     stats.files_renamed = files_renamed;
     stats.conflicts_resolved = resolutions.size();
     stats.bytes_transferred = reporter.bytes_transferred();
-    stats.duration_seconds =
-        std::chrono::duration<double>(sync_end - sync_start).count();
+    stats.duration_seconds = std::chrono::duration<double>(sync_end - sync_start).count();
     reporter.finish(stats);
     reporter.display_summary();
 
