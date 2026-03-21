@@ -2,6 +2,8 @@
 
 Caravault is an offline multi-drive file synchronization system that enables file consistency across multiple storage drives that are never connected simultaneously. The system reconciles file differences when drives are connected to a host machine, using version vectors for conflict detection, Merkle trees for efficient change detection, and majority voting for conflict resolution.
 
+Read more about it in this blog post on [Medium](https://medium.com/@sampathanurag3/i-built-an-offline-file-sync-system-heres-how-it-works-4f8c6388a745).
+
 ## Features
 
 - **Stateless Host**: All synchronization state stored on drives, not the host
