@@ -18,14 +18,10 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  build:
-    name: Build (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-
+  # ── Linux ────────────────────────────────────────────────────────────────
+  build-linux:
+    name: Build (Linux)
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -33,59 +29,183 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/_deps
-          key: cmake-deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: cmake-deps-${{ runner.os }}-
+          key: cmake-deps-linux-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: cmake-deps-linux-
 
-      # ── Linux dependencies ──────────────────────────────────────────────
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake libsqlite3-dev libssl-dev rpm
 
-      # ── macOS dependencies ──────────────────────────────────────────────
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Resolve tag name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package
+        run: |
+          strip build/caravault
+          cp build/caravault caravault-${{ steps.tag.outputs.name }}-linux-x86_64
+          cd build && cpack --config CPackConfig.cmake
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-linux
+          path: |
+            caravault-*-linux-x86_64
+            build/*.deb
+            build/*.rpm
+          if-no-files-found: error
+
+  # ── macOS x86_64 (Intel) ─────────────────────────────────────────────────
+  build-macos-x86_64:
+    name: Build (macOS x86_64)
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache CMake dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: cmake-deps-macos-x86_64-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: cmake-deps-macos-x86_64-
+
+      - name: Install dependencies
         run: brew install openssl sqlite
 
-      # ── Windows dependencies (vcpkg) ────────────────────────────────────
-      - name: Cache vcpkg packages (Windows)
-        if: runner.os == 'Windows'
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-x86_64
+          path: build/caravault
+          if-no-files-found: error
+
+  # ── macOS arm64 (Apple Silicon) ──────────────────────────────────────────
+  build-macos-arm64:
+    name: Build (macOS arm64)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache CMake dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: cmake-deps-macos-arm64-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: cmake-deps-macos-arm64-
+
+      - name: Install dependencies
+        run: brew install openssl sqlite
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: build/caravault
+          if-no-files-found: error
+
+  # ── macOS universal binary ───────────────────────────────────────────────
+  build-macos-universal:
+    name: Build (macOS universal)
+    needs: [build-macos-x86_64, build-macos-arm64]
+    runs-on: macos-latest
+    steps:
+      - name: Resolve tag name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download x86_64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-x86_64
+          path: macos-x86_64
+
+      - name: Download arm64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-arm64
+          path: macos-arm64
+
+      - name: Create universal binary
+        run: |
+          lipo -create -output caravault-${{ steps.tag.outputs.name }}-macos-universal \
+            macos-x86_64/caravault \
+            macos-arm64/caravault
+          chmod +x caravault-${{ steps.tag.outputs.name }}-macos-universal
+          lipo -info caravault-${{ steps.tag.outputs.name }}-macos-universal
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-macos
+          path: caravault-*-macos-universal
+          if-no-files-found: error
+
+  # ── Windows ──────────────────────────────────────────────────────────────
+  build-windows:
+    name: Build (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache CMake dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: cmake-deps-windows-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: cmake-deps-windows-
+
+      - name: Cache vcpkg packages
         uses: actions/cache@v4
         with:
           path: C:\vcpkg\installed
-          key: vcpkg-${{ runner.os }}-sqlite3-openssl
-          restore-keys: vcpkg-${{ runner.os }}-
+          key: vcpkg-windows-sqlite3-openssl
+          restore-keys: vcpkg-windows-
 
-      - name: Install dependencies (Windows)
-        if: runner.os == 'Windows'
+      - name: Install dependencies
         run: |
           vcpkg install sqlite3:x64-windows openssl:x64-windows
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
 
-      # ── Configure ───────────────────────────────────────────────────────
-      - name: Configure (macOS/Linux)
-        if: runner.os != 'Windows'
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-
-      - name: Configure (Windows)
-        if: runner.os == 'Windows'
+      - name: Configure
         run: |
           cmake -S . -B build `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows
 
-      # ── Build ────────────────────────────────────────────────────────────
-      - name: Build (macOS/Linux)
-        if: runner.os != 'Windows'
+      - name: Build
         run: cmake --build build --config Release
 
-      - name: Build (Windows)
-        if: runner.os == 'Windows'
-        run: cmake --build build --config Release
-
-      # ── Resolve tag name ─────────────────────────────────────────────────
       - name: Resolve tag name
         id: tag
         shell: bash
@@ -96,55 +216,20 @@ jobs:
             echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
           fi
 
-      # ── Package ──────────────────────────────────────────────────────────
-      - name: Package (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          strip build/caravault
-          cp build/caravault caravault-${{ steps.tag.outputs.name }}-macos-x86_64
-
-      - name: Package (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          strip build/caravault
-          cp build/caravault caravault-${{ steps.tag.outputs.name }}-linux-x86_64
-          cd build && cpack --config CPackConfig.cmake
-
-      - name: Package (Windows)
-        if: runner.os == 'Windows'
+      - name: Package
         run: cp build\Release\caravault.exe caravault-${{ steps.tag.outputs.name }}-windows-x64.exe
 
-      # ── Collect artifacts ─────────────────────────────────────────────
-      - name: Upload artifacts (macOS)
-        if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
-        with:
-          name: package-macos
-          path: caravault-*-macos-x86_64
-          if-no-files-found: error
-
-      - name: Upload artifacts (Linux)
-        if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: package-linux
-          path: |
-            caravault-*-linux-x86_64
-            build/*.deb
-            build/*.rpm
-          if-no-files-found: error
-
-      - name: Upload artifacts (Windows)
-        if: runner.os == 'Windows'
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: package-windows
           path: caravault-*-windows-x64.exe
           if-no-files-found: error
 
+  # ── Release ──────────────────────────────────────────────────────────────
   release:
     name: Publish Release
-    needs: build
+    needs: [build-linux, build-macos-universal, build-windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
 
@@ -181,11 +266,11 @@ jobs:
 
             | Platform | File |
             |----------|------|
-            | macOS    | binary — `sudo mv caravault-*-macos-x86_64 /usr/local/bin/caravault && chmod +x /usr/local/bin/caravault` |
-            | Linux    | binary — `sudo mv caravault-*-linux-x86_64 /usr/local/bin/caravault && chmod +x /usr/local/bin/caravault` |
+            | macOS (Intel + Apple Silicon) | binary — `sudo install -m 755 caravault-*-macos-universal /usr/local/bin/caravault` |
+            | Linux x86_64 | binary — `sudo install -m 755 caravault-*-linux-x86_64 /usr/local/bin/caravault` |
             | Linux (Debian/Ubuntu) | `.deb` — `sudo dpkg -i caravault-*.deb` |
             | Linux (Fedora/RHEL)   | `.rpm` — `sudo rpm -i caravault-*.rpm` |
-            | Windows  | `.exe` — add it to PATH |
+            | Windows x64 | `.exe` — add to PATH |
           files: artifacts/*
           draft: false
           prerelease: ${{ contains(steps.tag.outputs.name, '-') }}

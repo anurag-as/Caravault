@@ -44,7 +44,11 @@ ManifestStore ManifestStore::open(const fs::path& db_path) {
     }
 
     ManifestStore store;
+#ifdef _WIN32
+    int rc = sqlite3_open16(db_path.wstring().c_str(), &store.db_);
+#else
     int rc = sqlite3_open(db_path.string().c_str(), &store.db_);
+#endif
     if (rc != SQLITE_OK) {
         std::string msg = "Failed to open database '";
         msg += db_path.string();

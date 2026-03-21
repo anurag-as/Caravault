@@ -141,8 +141,10 @@ MerkleNode MerkleEngine::build_node(const fs::path& root_path,
             node.hash = "";
             return node;
         }
+        auto mtime_sys = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+            mtime_tp - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
         auto mtime = static_cast<uint64_t>(
-            std::chrono::duration_cast<std::chrono::seconds>(mtime_tp.time_since_epoch()).count());
+            std::chrono::duration_cast<std::chrono::seconds>(mtime_sys.time_since_epoch()).count());
 
         auto cached = store.get_file(node.path);
         if (cached.has_value() && !cached->hash.empty() && cached->size == file_size &&

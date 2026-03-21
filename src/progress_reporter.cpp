@@ -50,10 +50,15 @@ void ProgressReporter::update_bytes(size_t bytes_transferred) {
 void ProgressReporter::finish(const SummaryStats& stats) {
     std::lock_guard<std::mutex> lock(mutex_);
     summary_ = stats;
-    if (is_tty_)
+    if (is_tty_) {
+#ifdef _WIN32
+        std::fprintf(stderr, "\r%-80s\r", "");
+#else
         std::fprintf(stderr, "\r\033[K");
-    else
+#endif
+    } else {
         std::fprintf(stderr, "\n");
+    }
     std::fflush(stderr);
     started_ = false;
 }
