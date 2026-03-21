@@ -264,13 +264,27 @@ jobs:
 
             ### Install
 
-            | Platform | File |
-            |----------|------|
-            | macOS (Intel + Apple Silicon) | binary — `sudo install -m 755 caravault-*-macos-universal /usr/local/bin/caravault` |
-            | Linux x86_64 | binary — `sudo install -m 755 caravault-*-linux-x86_64 /usr/local/bin/caravault` |
-            | Linux (Debian/Ubuntu) | `.deb` — `sudo dpkg -i caravault-*.deb` |
-            | Linux (Fedora/RHEL)   | `.rpm` — `sudo rpm -i caravault-*.rpm` |
-            | Windows x64 | `.exe` — add to PATH |
+            **macOS** (Intel + Apple Silicon universal binary)
+            ```bash
+            sudo install -m 755 caravault-${{ steps.tag.outputs.name }}-macos-universal /usr/local/bin/caravault
+            ```
+
+            **Linux x86_64** (binary)
+            ```bash
+            sudo install -m 755 caravault-${{ steps.tag.outputs.name }}-linux-x86_64 /usr/local/bin/caravault
+            ```
+
+            **Linux** (Debian/Ubuntu)
+            ```bash
+            sudo dpkg -i caravault-${{ steps.tag.outputs.name }}-linux-x86_64.deb
+            ```
+
+            **Linux** (Fedora/RHEL)
+            ```bash
+            sudo rpm -i caravault-${{ steps.tag.outputs.name }}-linux-x86_64.rpm
+            ```
+
+            **Windows x64** — rename `caravault-${{ steps.tag.outputs.name }}-windows-x64.exe` to `caravault.exe` and add to `PATH`.
           files: artifacts/*
           draft: false
           prerelease: ${{ contains(steps.tag.outputs.name, '-') }}

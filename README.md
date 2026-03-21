@@ -13,36 +13,42 @@ Caravault is an offline multi-drive file synchronization system that enables fil
 
 ## Installation
 
-### macOS
+Download the latest release from the [Releases](../../releases) page.
 
-Download `caravault-<version>-macos` from the [Releases](../../releases) page and move it to your `PATH`:
+### macOS (Intel/Apple Silicon)
+
+The release ships a single universal binary that runs natively on both Intel and Apple Silicon Macs.
 
 ```bash
-sudo mv caravault-<version>-macos /usr/local/bin/caravault
-chmod +x /usr/local/bin/caravault
+sudo install -m 755 caravault-<version>-macos-universal /usr/local/bin/caravault
 caravault --help
 ```
 
-### Linux
+### Linux (x86_64)
+
+**Binary**
+```bash
+sudo install -m 755 caravault-<version>-linux-x86_64 /usr/local/bin/caravault
+caravault --help
+```
 
 **Debian / Ubuntu (.deb)**
 ```bash
 sudo dpkg -i caravault-<version>-linux-x86_64.deb
 ```
 
-**Fedora / RHEL / openSUSE (.rpm)**
+**Fedora / RHEL (.rpm)**
 ```bash
 sudo rpm -i caravault-<version>-linux-x86_64.rpm
 # or with dnf:
 sudo dnf install ./caravault-<version>-linux-x86_64.rpm
 ```
 
-### Windows
+### Windows (x64)
 
-Download `caravault-<version>-windows-x64.exe` from the [Releases](../../releases) page and add it to your `PATH`
+Download `caravault-<version>-windows-x64.exe`, rename it to `caravault.exe`, and place it somewhere on your `PATH`.
 
 ```powershell
-# Then open a new terminal and run:
 caravault --help
 ```
 
@@ -56,8 +62,12 @@ caravault --help
 brew install cmake sqlite openssl clang-format
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-# Create .dmg package
-cd build && cpack
+
+cmake -S . -B build-x86 -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64
+cmake --build build-x86
+cmake -S . -B build-arm -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
+cmake --build build-arm
+lipo -create -output caravault-universal build-x86/caravault build-arm/caravault
 ```
 
 ### Linux
@@ -77,11 +87,11 @@ cd build && cpack
 ### Windows
 
 ```powershell
-# Install NSIS from https://nsis.sourceforge.io before packaging
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build `
+  -DCMAKE_BUILD_TYPE=Release `
+  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+  -DVCPKG_TARGET_TRIPLET=x64-windows
 cmake --build build --config Release
-# Create NSIS installer
-cd build && cpack -C Release
 ```
 
 ### Run tests
