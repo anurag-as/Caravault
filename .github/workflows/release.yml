@@ -43,6 +43,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake libsqlite3-dev libssl-dev rpm
 
+      # ── macOS dependencies ──────────────────────────────────────────────
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install openssl sqlite
+
       # ── Windows dependencies (vcpkg) ────────────────────────────────────
       - name: Cache vcpkg packages (Windows)
         if: runner.os == 'Windows'
@@ -74,45 +79,74 @@ jobs:
       # ── Build ────────────────────────────────────────────────────────────
       - name: Build (macOS/Linux)
         if: runner.os != 'Windows'
-        run: cmake --build build
+        run: cmake --build build --config Release
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
         run: cmake --build build --config Release
 
+      # ── Resolve tag name ─────────────────────────────────────────────────
+      - name: Resolve tag name
+        id: tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
       # ── Package ──────────────────────────────────────────────────────────
       - name: Package (macOS)
         if: runner.os == 'macOS'
-        run: cp build/caravault caravault-${{ github.ref_name }}-macos
+        run: |
+          strip build/caravault
+          cp build/caravault caravault-${{ steps.tag.outputs.name }}-macos-x86_64
 
       - name: Package (Linux)
         if: runner.os == 'Linux'
-        working-directory: build
         run: |
-          strip caravault
-          cpack
+          strip build/caravault
+          cp build/caravault caravault-${{ steps.tag.outputs.name }}-linux-x86_64
+          cd build && cpack --config CPackConfig.cmake
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
-        run: cp build\Release\caravault.exe caravault-${{ github.ref_name }}-windows-x64.exe
+        run: cp build\Release\caravault.exe caravault-${{ steps.tag.outputs.name }}-windows-x64.exe
 
       # ── Collect artifacts ─────────────────────────────────────────────
-      - name: Upload artifacts
+      - name: Upload artifacts (macOS)
+        if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
-          name: package-${{ matrix.os }}
+          name: package-macos
+          path: caravault-*-macos-x86_64
+          if-no-files-found: error
+
+      - name: Upload artifacts (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-linux
           path: |
-            caravault-*-macos
-            caravault-*-windows-x64.exe
+            caravault-*-linux-x86_64
             build/*.deb
             build/*.rpm
+          if-no-files-found: error
+
+      - name: Upload artifacts (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-windows
+          path: caravault-*-windows-x64.exe
           if-no-files-found: error
 
   release:
     name: Publish Release
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
 
     steps:
       - uses: actions/checkout@v4
@@ -123,21 +157,35 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: List artifacts
+        run: ls -lh artifacts/
+
+      - name: Resolve tag name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Caravault ${{ github.ref_name }}
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: Caravault ${{ steps.tag.outputs.name }}
           body: |
-            ## Caravault ${{ github.ref_name }}
+            ## Caravault ${{ steps.tag.outputs.name }}
 
             ### Install
 
             | Platform | File |
             |----------|------|
-            | macOS    | binary — `sudo mv caravault-*-macos /usr/local/bin/caravault && chmod +x /usr/local/bin/caravault` |
+            | macOS    | binary — `sudo mv caravault-*-macos-x86_64 /usr/local/bin/caravault && chmod +x /usr/local/bin/caravault` |
+            | Linux    | binary — `sudo mv caravault-*-linux-x86_64 /usr/local/bin/caravault && chmod +x /usr/local/bin/caravault` |
             | Linux (Debian/Ubuntu) | `.deb` — `sudo dpkg -i caravault-*.deb` |
             | Linux (Fedora/RHEL)   | `.rpm` — `sudo rpm -i caravault-*.rpm` |
             | Windows  | `.exe` — add it to PATH |
           files: artifacts/*
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(steps.tag.outputs.name, '-') }}
